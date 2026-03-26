@@ -20,6 +20,7 @@
     "directories": {
       "output": "release"
     },
+    "artifactName": "${productName}-Setup-${version}-${os}-${arch}.${ext}",
     "files": [
       "dist/**/*",
       "dist/**/*",
