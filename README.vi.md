@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ezprofile/ezprofile/releases"><img src="https://img.shields.io/github/v/release/ezprofile/ezprofile?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/collyn/ezprofile/releases"><img src="https://img.shields.io/github/v/release/ezprofile/ezprofile?style=flat-square" alt="Release"></a>
   <a href="https://github.com/ezprofile/ezprofile/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ezprofile/ezprofile?style=flat-square" alt="License"></a>
-  <a href="https://github.com/ezprofile/ezprofile/releases"><img src="https://img.shields.io/github/downloads/ezprofile/ezprofile/total?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/collyn/ezprofile/releases"><img src="https://img.shields.io/github/downloads/ezprofile/ezprofile/total?style=flat-square" alt="Downloads"></a>
 </p>
 
 <p align="center">
@@ -45,7 +45,7 @@
 
 ## 📦 Cài đặt
 
-Tải phiên bản mới nhất cho hệ điều hành của bạn từ trang [Releases](https://github.com/ezprofile/ezprofile/releases).
+Tải phiên bản mới nhất cho hệ điều hành của bạn từ trang [Releases](https://github.com/collyn/ezprofile/releases).
 
 ### Windows
 Tải và chạy file `EzProfile-Setup-x.x.x-win-x64.exe` (hoặc phiên bản `arm64`).

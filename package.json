@@ -27,7 +27,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "ezprofile",
+      "owner": "collyn",
       "repo": "ezprofile"
     },
     "asarUnpack": [

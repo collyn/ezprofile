@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ezprofile/ezprofile/releases"><img src="https://img.shields.io/github/v/release/ezprofile/ezprofile?style=flat-square" alt="Release"></a>
-  <a href="https://github.com/ezprofile/ezprofile/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ezprofile/ezprofile?style=flat-square" alt="License"></a>
-  <a href="https://github.com/ezprofile/ezprofile/releases"><img src="https://img.shields.io/github/downloads/ezprofile/ezprofile/total?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/collyn/ezprofile/releases"><img src="https://img.shields.io/github/v/release/collyn/ezprofile?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/collyn/ezprofile/blob/main/LICENSE"><img src="https://img.shields.io/github/license/collyn/ezprofile?style=flat-square" alt="License"></a>
+  <a href="https://github.com/collyn/ezprofile/releases"><img src="https://img.shields.io/github/downloads/collyn/ezprofile/total?style=flat-square" alt="Downloads"></a>
 </p>
 
 <p align="center">
@@ -45,7 +45,7 @@
 
 ## 📦 Installation
 
-Download the latest release for your platform from the [Releases](https://github.com/ezprofile/ezprofile/releases) page.
+Download the latest release for your platform from the [Releases](https://github.com/collyn/ezprofile/releases) page.
 
 ### Windows
 Download and run `EzProfile-Setup-x.x.x-win-x64.exe` (or `arm64` variant).
