@@ -116,6 +116,7 @@
         "upToDate": "Bạn đang dùng phiên bản mới nhất ✓",
         "updateAvailable": "Phiên bản mới v{{version}} đã sẵn sàng!",
         "downloadUpdate": "Tải về & Cập nhật",
+        "openDownloadPage": "Mở trang tải xuống",
         "downloading": "Đang tải... {{percent}}%",
         "downloadReady": "Bản cập nhật v{{version}} đã tải xong. Sẵn sàng cài đặt!",
         "installUpdate": "Cài đặt & Khởi động lại",

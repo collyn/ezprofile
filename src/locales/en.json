@@ -116,6 +116,7 @@
         "upToDate": "You are using the latest version ✓",
         "updateAvailable": "New version v{{version}} is available!",
         "downloadUpdate": "Download & Update",
+        "openDownloadPage": "Open Download Page",
         "downloading": "Downloading... {{percent}}%",
         "downloadReady": "Update v{{version}} downloaded. Ready to install!",
         "installUpdate": "Install & Restart",

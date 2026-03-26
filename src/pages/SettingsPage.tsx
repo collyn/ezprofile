@@ -23,17 +23,20 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [newVersion, setNewVersion] = useState('');
   const [downloadPercent, setDownloadPercent] = useState(0);
   const [updateError, setUpdateError] = useState('');
+  const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [path, dir, version] = await Promise.all([
+        const [path, dir, version, platform] = await Promise.all([
           api.getChromePath(),
           api.getProfilesDir(),
           api.getAppVersion(),
+          api.getPlatform(),
         ]);
         setChromePath(path || '');
         setProfilesDir(dir || '');
+        setIsMac(platform === 'darwin');
         setAppVersion(version || '1.0.0');
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -77,6 +80,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   };
 
   const handleDownloadUpdate = () => {
+    if (isMac) {
+      // macOS: open GitHub releases page (code signing required for in-app update)
+      api.openExternal(`https://github.com/collyn/ezprofile/releases/latest`);
+      return;
+    }
     setUpdateStatus('downloading');
     setDownloadPercent(0);
     api.downloadUpdate();
@@ -311,7 +319,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       <polyline points="7 10 12 15 17 10" />
                       <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    {t('settings.appInfo.downloadUpdate')}
+                    {isMac ? t('settings.appInfo.openDownloadPage') : t('settings.appInfo.downloadUpdate')}
                   </button>
                 </div>
               )}

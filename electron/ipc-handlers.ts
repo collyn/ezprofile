@@ -18,28 +18,33 @@ export function registerIpcHandlers(
   browserVersionManager: BrowserVersionManager,
   mainWindow: BrowserWindow | null
 ) {
+  // Cleanup stale 'running' statuses from crashed sessions (using lock files).
+  // Runs on startup and every 60s — NOT on every getAll to avoid race conditions.
+  const cleanupStaleStatuses = () => {
+    const profiles = profileManager.getAll();
+    for (const p of profiles) {
+      if (p.status === 'running' && !chromeLauncher.isRunning(p.id)) {
+        if (!ChromeLauncher.isProfileActuallyRunning(p.user_data_dir)) {
+          profileManager.updateStatus(p.id, 'ready');
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('profile:statusChanged', p.id, 'ready');
+          }
+        }
+      }
+    }
+  };
+  cleanupStaleStatuses();
+  setInterval(cleanupStaleStatuses, 60000);
+
   // Profile operations
   ipcMain.handle('profile:getAll', () => {
     const profiles = profileManager.getAll();
-    // Determine status using multiple sources for cross-session sync:
-    // 1. In-memory process map (this instance launched it)
-    // 2. DB status (another instance may have set it to 'running')
-    // 3. Lock file check (to clean up stale 'running' statuses after crashes)
-    return profiles.map((p) => {
-      if (chromeLauncher.isRunning(p.id)) {
-        return { ...p, status: 'running' as const };
-      }
-      // Trust DB status, but verify with lock file if DB says 'running'
-      if (p.status === 'running') {
-        const actuallyRunning = ChromeLauncher.isProfileActuallyRunning(p.user_data_dir);
-        if (!actuallyRunning) {
-          // Stale status — Chrome process no longer exists, auto-repair
-          profileManager.updateStatus(p.id, 'ready');
-          return { ...p, status: 'ready' as const };
-        }
-      }
-      return p;
-    });
+    // Combine in-memory status (this instance) with DB status (other instances).
+    // In-memory check wins for this instance; otherwise trust DB status.
+    return profiles.map((p) => ({
+      ...p,
+      status: chromeLauncher.isRunning(p.id) ? 'running' : p.status,
+    }));
   });
 
   ipcMain.handle('profile:create', (_event, data) => {
@@ -395,5 +400,14 @@ export function registerIpcHandlers(
   // App handlers
   ipcMain.handle('app:getVersion', () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle('app:getPlatform', () => {
+    return process.platform;
+  });
+
+  ipcMain.handle('app:openExternal', (_event, url: string) => {
+    const { shell } = require('electron');
+    return shell.openExternal(url);
   });
 }

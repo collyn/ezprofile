@@ -57,6 +57,8 @@ declare global {
 
       // App & Updater
       getAppVersion: () => Promise<string>;
+      getPlatform: () => Promise<string>;
+      openExternal: (url: string) => Promise<void>;
       checkForUpdates: () => Promise<void>;
       downloadUpdate: () => Promise<void>;
       quitAndInstallUpdate: () => Promise<void>;

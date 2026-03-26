@@ -112,6 +112,8 @@ export const mockElectronAPI: typeof window.electronAPI = {
 
   // App & Updater
   getAppVersion: async () => '1.0.0 (Web)',
+  getPlatform: async () => 'linux',
+  openExternal: async (url: string) => { window.open(url, '_blank'); },
   checkForUpdates: async () => { console.log('Mock checking for updates...'); },
   downloadUpdate: async () => { console.log('Mock downloading update...'); },
   quitAndInstallUpdate: async () => { console.log('Mock quit and install update...'); },
