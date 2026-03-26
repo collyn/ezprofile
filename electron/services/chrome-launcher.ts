@@ -161,6 +161,13 @@ export class ChromeLauncher {
         prefs.session.restore_on_startup = 1;
     }
 
+    // Mark exit as clean so Chrome restores tabs after being killed from another
+    // RDP session (SIGTERM causes Chrome to write exit_type='Crashed' which
+    // prevents automatic session restore)
+    if (!prefs.profile) prefs.profile = {};
+    prefs.profile.exit_type = 'Normal';
+    prefs.profile.exited_cleanly = true;
+
     fs.writeFileSync(prefsPath, JSON.stringify(prefs, null, 2), 'utf-8');
   }
 
