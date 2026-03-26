@@ -126,39 +126,59 @@ export function registerIpcHandlers(
   });
 
   // Chrome launcher
-  ipcMain.handle('chrome:launch', (_event, id) => {
+  ipcMain.handle('chrome:launch', async (_event, id) => {
     const profile = profileManager.getById(id);
     if (!profile) throw new Error('Profile not found');
-    if (chromeLauncher.isRunning(id)) throw new Error('Profile is already running');
+    if (chromeLauncher.isRunning(id)) throw new Error('Profile is already running in this session');
 
-    const child = chromeLauncher.launch(id, profile.user_data_dir, {
-      proxyType: profile.proxy_type || undefined,
-      proxyHost: profile.proxy_host || undefined,
-      proxyPort: profile.proxy_port || undefined,
-      proxyUser: profile.proxy_user || undefined,
-      proxyPass: profile.proxy_pass || undefined,
-      startupUrl: profile.startup_url || undefined,
-      startupType: profile.startup_type || 'continue',
-      startupUrls: profile.startup_urls || undefined,
-      browserVersion: profile.browser_version || 'system',
-    });
+    try {
+      const child = chromeLauncher.launch(id, profile.user_data_dir, {
+        proxyType: profile.proxy_type || undefined,
+        proxyHost: profile.proxy_host || undefined,
+        proxyPort: profile.proxy_port || undefined,
+        proxyUser: profile.proxy_user || undefined,
+        proxyPass: profile.proxy_pass || undefined,
+        startupUrl: profile.startup_url || undefined,
+        startupType: profile.startup_type || 'continue',
+        startupUrls: profile.startup_urls || undefined,
+        browserVersion: profile.browser_version || 'system',
+      });
 
-    profileManager.updateStatus(id, 'running');
+      profileManager.updateStatus(id, 'running');
 
-    child.on('exit', () => {
-      profileManager.updateStatus(id, 'ready');
+      child.on('exit', () => {
+        // Only update status to ready if the process wasn't killed by another session taking over
+        // Actually, if it exits, it's ready.
+        profileManager.updateStatus(id, 'ready');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('profile:statusChanged', id, 'ready');
+        }
+      });
+
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('profile:statusChanged', id, 'ready');
+        mainWindow.webContents.send('profile:statusChanged', id, 'running');
       }
-    });
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('profile:statusChanged', id, 'running');
+    } catch (err: any) {
+      // If launch fails (e.g. locked by another RDP session), ensure status is correct
+      if (!ChromeLauncher.isProfileActuallyRunning(profile.user_data_dir)) {
+         profileManager.updateStatus(id, 'ready');
+         if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('profile:statusChanged', id, 'ready');
+         }
+      }
+      throw err;
     }
   });
 
   ipcMain.handle('chrome:stop', (_event, id) => {
-    chromeLauncher.stop(id);
+    const profile = profileManager.getById(id);
+    const stopped = chromeLauncher.stop(id);
+
+    // If not stopped locally, try stopping from another session via lock file
+    if (!stopped && profile) {
+      ChromeLauncher.stopByLockFile(profile.user_data_dir);
+    }
+
     profileManager.updateStatus(id, 'ready');
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('profile:statusChanged', id, 'ready');

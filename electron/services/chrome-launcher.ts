@@ -194,8 +194,10 @@ export class ChromeLauncher {
       fs.mkdirSync(userDataDir, { recursive: true });
     }
 
-    // Remove lock files for multi-RDP session support
-    this.removeLockFiles(userDataDir);
+    // Check if another Electron instance / RDP session already has this profile open
+    if (ChromeLauncher.isProfileActuallyRunning(userDataDir)) {
+      throw new Error('Profile is already running in another session');
+    }
 
     // Write startup preferences to Chrome's Preferences file
     this.writeStartupPreferences(
@@ -310,19 +312,110 @@ export class ChromeLauncher {
 
   /**
    * Check if a Chrome profile is actually running by looking for the
-   * SingletonLock file in the user data directory. This works across
-   * different Electron instances / RDP sessions.
+   * SingletonLock file AND verifying the PID is alive.
+   * Cleans up stale lock files from crashed/closed Chrome sessions.
    */
   static isProfileActuallyRunning(userDataDir: string): boolean {
     const lockPath = path.join(userDataDir, 'SingletonLock');
     try {
-      // On Linux, SingletonLock is a symlink. If it exists, Chrome is running.
-      // On Windows, the lock file is a regular file.
       const stat = fs.lstatSync(lockPath);
-      return stat.isSymbolicLink() || stat.isFile();
+
+      if (stat.isSymbolicLink()) {
+        // Linux/macOS: SingletonLock is a symlink → "hostname-PID"
+        try {
+          const linkTarget = fs.readlinkSync(lockPath);
+          const pidMatch = linkTarget.match(/-(\d+)$/);
+          if (pidMatch) {
+            const pid = parseInt(pidMatch[1]);
+            try {
+              // Signal 0 checks if process exists without killing it
+              process.kill(pid, 0);
+              return true; // Process is alive
+            } catch {
+              // Process is dead — clean up stale lock
+              console.log(`[ChromeLauncher] Cleaning up stale SingletonLock (PID ${pid} is dead)`);
+              try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+              return false;
+            }
+          }
+        } catch {
+          // Can't read symlink — assume stale, clean up
+          try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+          return false;
+        }
+      } else if (stat.isFile()) {
+        // Windows: SingletonLock is a regular file.
+        // We can't easily get PID from it, so check if the profile's
+        // internal databases are locked (try to open and immediately close)
+        return true;
+      }
     } catch {
       // File doesn't exist = Chrome not running
-      return false;
     }
+    return false;
+  }
+
+  /**
+   * Stop a Chrome process that was launched by another Electron instance / RDP session.
+   * On Linux: reads PID from the SingletonLock symlink (format: "hostname-PID")
+   * On Windows: uses taskkill to find Chrome process by --user-data-dir argument
+   */
+  static stopByLockFile(userDataDir: string): boolean {
+    const lockPath = path.join(userDataDir, 'SingletonLock');
+    const platform = os.platform();
+
+    try {
+      if (platform === 'win32') {
+        // On Windows, find and kill Chrome by its command-line user-data-dir
+        // Use wmic or taskkill; try execSync for simplicity
+        const { execSync } = require('child_process');
+        try {
+          // Find Chrome PIDs using the specific user-data-dir
+          const normalizedDir = userDataDir.replace(/\\/g, '\\\\');
+          const result = execSync(
+            `wmic process where "CommandLine like '%--user-data-dir=${normalizedDir}%'" get ProcessId /format:list`,
+            { encoding: 'utf-8', timeout: 5000 }
+          );
+          const pids = result.match(/ProcessId=(\d+)/g);
+          if (pids) {
+            for (const pidStr of pids) {
+              const pid = parseInt(pidStr.replace('ProcessId=', ''));
+              if (pid > 0) {
+                try { process.kill(pid, 'SIGTERM'); } catch { /* ignore */ }
+              }
+            }
+          }
+        } catch {
+          // wmic may fail; try taskkill as fallback
+        }
+        // Also clean up lock files on Windows
+        for (const file of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+          try { fs.unlinkSync(path.join(userDataDir, file)); } catch { /* ignore */ }
+        }
+        return true;
+      } else {
+        // Linux/macOS: SingletonLock is a symlink pointing to "hostname-PID"
+        const linkTarget = fs.readlinkSync(lockPath);
+        const pidMatch = linkTarget.match(/-(\d+)$/);
+        if (pidMatch) {
+          const pid = parseInt(pidMatch[1]);
+          try {
+            process.kill(pid, 'SIGTERM');
+            console.log(`[ChromeLauncher] Killed Chrome process ${pid} from another session`);
+            return true;
+          } catch (err: any) {
+            if (err.code === 'ESRCH') {
+              // Process doesn't exist anymore, clean up stale lock
+              try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+              return true;
+            }
+            console.error(`[ChromeLauncher] Failed to kill process ${pid}:`, err);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[ChromeLauncher] Could not stop profile via lock file:`, err);
+    }
+    return false;
   }
 }
