@@ -55,6 +55,13 @@ function App() {
     api.onBackupProgress((profileId: string, progress: string) => {
       addToast('info', t('app.toasts.backupRestore', { progress }));
     });
+
+    // Periodic polling to sync profile status across RDP sessions
+    const pollInterval = setInterval(() => {
+      loadProfiles();
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
   }, [loadProfiles, loadGroups, addToast]);
 
   const handleCreateProfile = async (input: CreateProfileInput) => {

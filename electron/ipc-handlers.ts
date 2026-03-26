@@ -21,11 +21,25 @@ export function registerIpcHandlers(
   // Profile operations
   ipcMain.handle('profile:getAll', () => {
     const profiles = profileManager.getAll();
-    // Update status based on running processes
-    return profiles.map((p) => ({
-      ...p,
-      status: chromeLauncher.isRunning(p.id) ? 'running' : 'ready',
-    }));
+    // Determine status using multiple sources for cross-session sync:
+    // 1. In-memory process map (this instance launched it)
+    // 2. DB status (another instance may have set it to 'running')
+    // 3. Lock file check (to clean up stale 'running' statuses after crashes)
+    return profiles.map((p) => {
+      if (chromeLauncher.isRunning(p.id)) {
+        return { ...p, status: 'running' as const };
+      }
+      // Trust DB status, but verify with lock file if DB says 'running'
+      if (p.status === 'running') {
+        const actuallyRunning = ChromeLauncher.isProfileActuallyRunning(p.user_data_dir);
+        if (!actuallyRunning) {
+          // Stale status — Chrome process no longer exists, auto-repair
+          profileManager.updateStatus(p.id, 'ready');
+          return { ...p, status: 'ready' as const };
+        }
+      }
+      return p;
+    });
   });
 
   ipcMain.handle('profile:create', (_event, data) => {

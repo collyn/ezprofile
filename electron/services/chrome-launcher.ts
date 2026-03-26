@@ -307,4 +307,22 @@ export class ChromeLauncher {
     }
     return running;
   }
+
+  /**
+   * Check if a Chrome profile is actually running by looking for the
+   * SingletonLock file in the user data directory. This works across
+   * different Electron instances / RDP sessions.
+   */
+  static isProfileActuallyRunning(userDataDir: string): boolean {
+    const lockPath = path.join(userDataDir, 'SingletonLock');
+    try {
+      // On Linux, SingletonLock is a symlink. If it exists, Chrome is running.
+      // On Windows, the lock file is a regular file.
+      const stat = fs.lstatSync(lockPath);
+      return stat.isSymbolicLink() || stat.isFile();
+    } catch {
+      // File doesn't exist = Chrome not running
+      return false;
+    }
+  }
 }
