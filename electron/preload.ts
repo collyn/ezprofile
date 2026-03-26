@@ -102,13 +102,26 @@ const electronAPI = {
   // App & Updater
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
   quitAndInstallUpdate: () => ipcRenderer.invoke('updater:install'),
   
-  onUpdaterStatus: (callback: (status: string) => void) => {
-    ipcRenderer.on('updater:status', (_event, status) => callback(status));
+  onUpdaterChecking: (callback: () => void) => {
+    ipcRenderer.on('updater:checking', () => callback());
   },
-  onUpdaterProgress: (callback: (percent: number) => void) => {
-    ipcRenderer.on('updater:progress', (_event, percent) => callback(percent));
+  onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) => {
+    ipcRenderer.on('updater:update-available', (_event, info) => callback(info));
+  },
+  onUpdateNotAvailable: (callback: () => void) => {
+    ipcRenderer.on('updater:up-to-date', () => callback());
+  },
+  onUpdaterError: (callback: (message: string) => void) => {
+    ipcRenderer.on('updater:error', (_event, message) => callback(message));
+  },
+  onDownloadProgress: (callback: (info: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => {
+    ipcRenderer.on('updater:download-progress', (_event, info) => callback(info));
+  },
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
+    ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
   },
 };
 

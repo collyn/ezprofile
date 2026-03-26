@@ -92,27 +92,36 @@ app.on('activate', () => {
   }
 });
 
-// Chỉnh sửa config mốc cho updater nếu cần (tránh tự tải update luôn)
-autoUpdater.autoDownload = false; // Người dùng tự trigger tải sau hoặc ta trigger bằng code
+// Auto-updater config
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
 
-// Chuyển tiếp event xuống frontend
+// Forward updater events to frontend
 autoUpdater.on('checking-for-update', () => {
-  if (mainWindow) mainWindow.webContents.send('updater:status', 'Checking for updates...');
+  if (mainWindow) mainWindow.webContents.send('updater:checking');
 });
 autoUpdater.on('update-available', (info) => {
-  if (mainWindow) mainWindow.webContents.send('updater:status', `New update available (${info.version})`);
-  // Bắt đầu tải bản cập nhật
-  autoUpdater.downloadUpdate();
+  if (mainWindow) mainWindow.webContents.send('updater:update-available', {
+    version: info.version,
+    releaseDate: info.releaseDate,
+  });
 });
-autoUpdater.on('update-not-available', (info) => {
-  if (mainWindow) mainWindow.webContents.send('updater:status', 'You are using the latest version');
+autoUpdater.on('update-not-available', () => {
+  if (mainWindow) mainWindow.webContents.send('updater:up-to-date');
 });
 autoUpdater.on('error', (err) => {
-  if (mainWindow) mainWindow.webContents.send('updater:status', `Update error: ${err.message}`);
+  if (mainWindow) mainWindow.webContents.send('updater:error', err.message);
 });
 autoUpdater.on('download-progress', (progressObj) => {
-  if (mainWindow) mainWindow.webContents.send('updater:progress', progressObj.percent);
+  if (mainWindow) mainWindow.webContents.send('updater:download-progress', {
+    percent: progressObj.percent,
+    bytesPerSecond: progressObj.bytesPerSecond,
+    transferred: progressObj.transferred,
+    total: progressObj.total,
+  });
 });
 autoUpdater.on('update-downloaded', (info) => {
-  if (mainWindow) mainWindow.webContents.send('updater:status', 'Update downloaded. Ready to install.');
+  if (mainWindow) mainWindow.webContents.send('updater:update-downloaded', {
+    version: info.version,
+  });
 });

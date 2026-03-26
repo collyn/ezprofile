@@ -8,6 +8,8 @@ interface SettingsPageProps {
   onBack: () => void;
 }
 
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'up-to-date' | 'error';
+
 export default function SettingsPage({ onBack }: SettingsPageProps) {
   const { t } = useTranslation();
   const [chromePath, setChromePath] = useState('');
@@ -15,6 +17,12 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [appVersion, setAppVersion] = useState('');
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+
+  // Update states
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [newVersion, setNewVersion] = useState('');
+  const [downloadPercent, setDownloadPercent] = useState(0);
+  const [updateError, setUpdateError] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -34,7 +42,49 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       }
     };
     load();
+
+    // Listen for updater events
+    api.onUpdaterChecking(() => {
+      setUpdateStatus('checking');
+      setUpdateError('');
+    });
+    api.onUpdateAvailable((info) => {
+      setUpdateStatus('available');
+      setNewVersion(info.version);
+    });
+    api.onUpdateNotAvailable(() => {
+      setUpdateStatus('up-to-date');
+    });
+    api.onUpdaterError((message) => {
+      setUpdateStatus('error');
+      setUpdateError(message);
+    });
+    api.onDownloadProgress((info) => {
+      setUpdateStatus('downloading');
+      setDownloadPercent(Math.round(info.percent));
+    });
+    api.onUpdateDownloaded((info) => {
+      setUpdateStatus('ready');
+      setNewVersion(info.version);
+    });
   }, []);
+
+  const handleCheckForUpdates = () => {
+    setUpdateStatus('checking');
+    setUpdateError('');
+    setDownloadPercent(0);
+    api.checkForUpdates();
+  };
+
+  const handleDownloadUpdate = () => {
+    setUpdateStatus('downloading');
+    setDownloadPercent(0);
+    api.downloadUpdate();
+  };
+
+  const handleInstallUpdate = () => {
+    api.quitAndInstallUpdate();
+  };
 
   const handleSelectChromePath = async () => {
     const selected = await api.selectChromePath();
@@ -216,14 +266,121 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <InfoRow label={t('settings.appInfo.os')} value={navigator.platform} />
             </tbody>
           </table>
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)', display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary btn-sm" onClick={() => api.checkForUpdates()}>
-              {t('settings.appInfo.checkUpdate')}
-            </button>
-            <button className="btn btn-sm" onClick={() => api.quitAndInstallUpdate()}>
-              {t('settings.appInfo.installUpdate')}
-            </button>
-          </div>
+
+          {/* Update Status Banner */}
+          {updateStatus !== 'idle' && (
+            <div style={{
+              marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)',
+            }}>
+              {/* Checking */}
+              {updateStatus === 'checking' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+                    <path d="M21 12a9 9 0 11-6.219-8.56" />
+                  </svg>
+                  {t('settings.appInfo.checking')}
+                </div>
+              )}
+
+              {/* Up to date */}
+              {updateStatus === 'up-to-date' && (
+                <div style={{ color: '#34a853', fontWeight: 500 }}>
+                  {t('settings.appInfo.upToDate')}
+                </div>
+              )}
+
+              {/* Update available */}
+              {updateStatus === 'available' && (
+                <div>
+                  <div style={{
+                    color: '#fbbc05', fontWeight: 600, marginBottom: 10,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2v10m0 0l3-3m-3 3l-3-3" />
+                      <path d="M20 21H4" />
+                    </svg>
+                    {t('settings.appInfo.updateAvailable', { version: newVersion })}
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={handleDownloadUpdate} style={{
+                    background: 'linear-gradient(135deg, #4285f4, #34a853)',
+                    border: 'none', fontWeight: 600,
+                  }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 4 }}>
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    {t('settings.appInfo.downloadUpdate')}
+                  </button>
+                </div>
+              )}
+
+              {/* Downloading */}
+              {updateStatus === 'downloading' && (
+                <div>
+                  <div style={{ color: '#4285f4', fontWeight: 500, marginBottom: 8 }}>
+                    {t('settings.appInfo.downloading', { percent: downloadPercent })}
+                  </div>
+                  <div style={{
+                    width: '100%', height: 6, background: 'var(--bg-secondary)',
+                    borderRadius: 3, overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      width: `${downloadPercent}%`, height: '100%',
+                      background: 'linear-gradient(90deg, #4285f4, #34a853)',
+                      borderRadius: 3, transition: 'width 0.3s ease',
+                    }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Download ready */}
+              {updateStatus === 'ready' && (
+                <div>
+                  <div style={{
+                    color: '#34a853', fontWeight: 600, marginBottom: 10,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                    {t('settings.appInfo.downloadReady', { version: newVersion })}
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={handleInstallUpdate} style={{
+                    background: 'linear-gradient(135deg, #34a853, #0f9d58)',
+                    border: 'none', fontWeight: 600,
+                  }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 4 }}>
+                      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                    </svg>
+                    {t('settings.appInfo.installUpdate')}
+                  </button>
+                </div>
+              )}
+
+              {/* Error */}
+              {updateStatus === 'error' && (
+                <div>
+                  <div style={{ color: '#ea4335', fontWeight: 500, marginBottom: 10 }}>
+                    {t('settings.appInfo.updateError', { error: updateError })}
+                  </div>
+                  <button className="btn btn-sm" onClick={handleCheckForUpdates}>
+                    {t('settings.appInfo.retryCheck')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Check for updates button (only shown when idle) */}
+          {updateStatus === 'idle' && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)' }}>
+              <button className="btn btn-primary btn-sm" onClick={handleCheckForUpdates}>
+                {t('settings.appInfo.checkUpdate')}
+              </button>
+            </div>
+          )}
         </div>
       </section>
 

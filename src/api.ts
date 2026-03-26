@@ -113,9 +113,14 @@ export const mockElectronAPI: typeof window.electronAPI = {
   // App & Updater
   getAppVersion: async () => '1.0.0 (Web)',
   checkForUpdates: async () => { console.log('Mock checking for updates...'); },
+  downloadUpdate: async () => { console.log('Mock downloading update...'); },
   quitAndInstallUpdate: async () => { console.log('Mock quit and install update...'); },
-  onUpdaterStatus: (callback: (status: string) => void) => { console.log('Mock onUpdaterStatus registered'); },
-  onUpdaterProgress: (callback: (percent: number) => void) => { console.log('Mock onUpdaterProgress registered'); },
+  onUpdaterChecking: () => {},
+  onUpdateAvailable: () => {},
+  onUpdateNotAvailable: () => {},
+  onUpdaterError: () => {},
+  onDownloadProgress: () => {},
+  onUpdateDownloaded: () => {},
 };
 
 export function getAPI(): typeof window.electronAPI {

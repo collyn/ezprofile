@@ -55,12 +55,6 @@ function App() {
     api.onBackupProgress((profileId: string, progress: string) => {
       addToast('info', t('app.toasts.backupRestore', { progress }));
     });
-    api.onUpdaterStatus((status: string) => {
-      addToast('info', t('app.toasts.update', { status }));
-    });
-    api.onUpdaterProgress((percent: number) => {
-      console.log(`Downloading update: ${Math.round(percent)}%`);
-    });
   }, [loadProfiles, loadGroups, addToast]);
 
   const handleCreateProfile = async (input: CreateProfileInput) => {

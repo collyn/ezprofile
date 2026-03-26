@@ -370,6 +370,10 @@ export function registerIpcHandlers(
     autoUpdater.checkForUpdates();
   });
 
+  ipcMain.handle('updater:download', () => {
+    autoUpdater.downloadUpdate();
+  });
+
   ipcMain.handle('updater:install', () => {
     autoUpdater.quitAndInstall();
   });

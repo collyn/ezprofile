@@ -112,7 +112,15 @@
         "database": "Database",
         "os": "Hệ điều hành",
         "checkUpdate": "Kiểm tra bản cập nhật",
-        "installUpdate": "Cài đặt & Khởi động lại"
+        "checking": "Đang kiểm tra cập nhật...",
+        "upToDate": "Bạn đang dùng phiên bản mới nhất ✓",
+        "updateAvailable": "Phiên bản mới v{{version}} đã sẵn sàng!",
+        "downloadUpdate": "Tải về & Cập nhật",
+        "downloading": "Đang tải... {{percent}}%",
+        "downloadReady": "Bản cập nhật v{{version}} đã tải xong. Sẵn sàng cài đặt!",
+        "installUpdate": "Cài đặt & Khởi động lại",
+        "updateError": "Kiểm tra cập nhật thất bại: {{error}}",
+        "retryCheck": "Thử lại"
       },
       "shortcuts": {
         "title": "Phím tắt",

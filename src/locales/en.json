@@ -112,7 +112,15 @@
         "database": "Database",
         "os": "Operating System",
         "checkUpdate": "Check for updates",
-        "installUpdate": "Install & Restart"
+        "checking": "Checking for updates...",
+        "upToDate": "You are using the latest version ✓",
+        "updateAvailable": "New version v{{version}} is available!",
+        "downloadUpdate": "Download & Update",
+        "downloading": "Downloading... {{percent}}%",
+        "downloadReady": "Update v{{version}} downloaded. Ready to install!",
+        "installUpdate": "Install & Restart",
+        "updateError": "Update check failed: {{error}}",
+        "retryCheck": "Retry"
       },
       "shortcuts": {
         "title": "Shortcuts",

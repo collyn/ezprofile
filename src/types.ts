@@ -58,9 +58,14 @@ declare global {
       // App & Updater
       getAppVersion: () => Promise<string>;
       checkForUpdates: () => Promise<void>;
+      downloadUpdate: () => Promise<void>;
       quitAndInstallUpdate: () => Promise<void>;
-      onUpdaterStatus: (callback: (status: string) => void) => void;
-      onUpdaterProgress: (callback: (percent: number) => void) => void;
+      onUpdaterChecking: (callback: () => void) => void;
+      onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) => void;
+      onUpdateNotAvailable: (callback: () => void) => void;
+      onUpdaterError: (callback: (message: string) => void) => void;
+      onDownloadProgress: (callback: (info: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
+      onUpdateDownloaded: (callback: (info: { version: string }) => void) => void;
     };
   }
 }
