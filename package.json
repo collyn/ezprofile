@@ -1,8 +1,8 @@
 {
   "name": "ezprofile",
   "version": "1.0.0",
-  "description": "Multi Chrome Profile Manager - Quản lý đa profile Chrome",
-  "homepage": "https://github.com/ezprofile/ezprofile",
+  "description": "Multi Chrome Profile Manager",
+  "homepage": "https://github.com/collyn/ezprofile",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development ELECTRON_DISABLE_SANDBOX=1 electron .\"",
