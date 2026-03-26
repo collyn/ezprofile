@@ -18,24 +18,12 @@ jobs:
           # Windows
           - os: windows-latest
             platform: win
-            arch: x64
-          - os: windows-latest
-            platform: win
-            arch: arm64
           # macOS
           - os: macos-latest
             platform: mac
-            arch: x64
-          - os: macos-latest
-            platform: mac
-            arch: arm64
           # Linux
           - os: ubuntu-22.04
             platform: linux
-            arch: x64
-          - os: ubuntu-22.04
-            platform: linux
-            arch: arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -61,14 +49,14 @@ jobs:
         run: npm run build
 
       - name: Build Electron distributables
-        run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+        run: npx electron-builder --${{ matrix.platform }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: EzProfile-${{ matrix.platform }}-${{ matrix.arch }}
+          name: EzProfile-${{ matrix.platform }}
           path: |
             release/*.exe
             release/*.dmg
