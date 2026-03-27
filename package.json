@@ -120,6 +120,7 @@
   "type": "commonjs",
   "dependencies": {
     "adm-zip": "^0.5.16",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
     "electron-serve": "^3.0.1",
     "electron-updater": "^6.8.3",
@@ -131,6 +132,7 @@
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
+    "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

@@ -20,6 +20,8 @@ interface ContextMenuProps {
   onBackupProfile: (id: string) => void;
   onRestoreProfile: (id: string) => void;
   onCloneProfile: (id: string) => void;
+  onSetPassword: (id: string) => void;
+  onRemovePassword: (id: string) => void;
 }
 
 export default function ContextMenu({
@@ -37,6 +39,8 @@ export default function ContextMenu({
   onBackupProfile,
   onRestoreProfile,
   onCloneProfile,
+  onSetPassword,
+  onRemovePassword,
 }: ContextMenuProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -163,6 +167,26 @@ export default function ContextMenu({
         </svg>
         {t('profiles.contextMenu.restoreData')}
       </button>
+
+      <div className="context-menu-divider" />
+
+      {profile.has_password ? (
+        <button className="context-menu-item" onClick={() => onRemovePassword(profileId)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          {t('profiles.contextMenu.removePassword')}
+        </button>
+      ) : (
+        <button className="context-menu-item" onClick={() => onSetPassword(profileId)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          {t('profiles.contextMenu.setPassword')}
+        </button>
+      )}
 
       <div className="context-menu-divider" />
 

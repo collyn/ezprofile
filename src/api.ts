@@ -27,6 +27,7 @@ function createMockProfile(input: CreateProfileInput): ProfileData {
     startup_url: input.startup_url || null,
     startup_type: input.startup_type || 'continue',
     startup_urls: input.startup_urls || null,
+    has_password: false,
     status: 'ready',
     last_run_at: null,
     created_at: new Date().toISOString().replace('Z', ''),
@@ -80,6 +81,15 @@ export const mockElectronAPI: typeof window.electronAPI = {
     mockProfiles.unshift(cloned);
     return cloned;
   },
+  setProfilePassword: async (id: string, _password: string) => {
+    const idx = mockProfiles.findIndex((p) => p.id === id);
+    if (idx >= 0) mockProfiles[idx].has_password = true;
+  },
+  removeProfilePassword: async (id: string, _password: string) => {
+    const idx = mockProfiles.findIndex((p) => p.id === id);
+    if (idx >= 0) mockProfiles[idx].has_password = false;
+  },
+  verifyProfilePassword: async () => true,
   deleteProfiles: async (ids) => {
     ids.forEach((id) => {
       const idx = mockProfiles.findIndex((p) => p.id === id);

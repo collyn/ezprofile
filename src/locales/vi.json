@@ -38,7 +38,10 @@
         "stopSuccess": "Đã đóng profile",
         "stopError": "Lỗi đóng profile: {{err}}",
         "cloneSuccess": "Đã nhân bản profile thành công",
-        "cloneError": "Lỗi nhân bản: {{err}}"
+        "cloneError": "Lỗi nhân bản: {{err}}",
+        "passwordSet": "Đã đặt mật khẩu thành công",
+        "passwordRemoved": "Đã xóa mật khẩu",
+        "passwordError": "Lỗi mật khẩu: {{err}}"
       }
     },
     "profiles": {
@@ -78,6 +81,8 @@
         "backupData": "Sao lưu dữ liệu",
         "restoreData": "Phục hồi dữ liệu",
         "cloneProfile": "Nhân bản profile",
+        "setPassword": "Đặt mật khẩu",
+        "removePassword": "Xóa mật khẩu",
         "deleteProfile": "Xóa profile"
       },
       "statusReady": "Sẵn sàng",
@@ -239,6 +244,22 @@
       "cancel": "Hủy",
       "saving": "Đang lưu...",
       "save": "Lưu lại"
+    },
+    "passwordModal": {
+      "setTitle": "Đặt mật khẩu Profile",
+      "verifyTitle": "Nhập mật khẩu",
+      "removeTitle": "Xóa mật khẩu",
+      "newPassword": "Mật khẩu mới",
+      "confirmPassword": "Xác nhận mật khẩu",
+      "passwordLabel": "Mật khẩu",
+      "enterPassword": "Nhập mật khẩu để tiếp tục",
+      "mismatch": "Mật khẩu không khớp",
+      "wrongPassword": "Mật khẩu không đúng",
+      "minLength": "Mật khẩu phải có ít nhất 4 ký tự",
+      "set": "Đặt mật khẩu",
+      "verify": "Xác nhận",
+      "remove": "Xóa mật khẩu",
+      "cancel": "Hủy"
     }
   }
 }

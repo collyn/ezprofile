@@ -5,6 +5,7 @@ import { getAPI } from './api';
 import TitleBar from './components/TitleBar';
 import ProfileList from './pages/ProfileList';
 import SettingsPage from './pages/SettingsPage';
+import PasswordModal from './components/PasswordModal';
 
 const api = getAPI();
 
@@ -15,6 +16,12 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<{ id: number; type: string; message: string }[]>([]);
   const [currentView, setCurrentView] = useState<'profiles' | 'settings'>('profiles');
+  const [passwordModal, setPasswordModal] = useState<{
+    mode: 'set' | 'verify' | 'remove';
+    profileId: string;
+    profileName: string;
+    pendingAction?: () => Promise<void>;
+  } | null>(null);
 
   const addToast = useCallback((type: string, message: string) => {
     const id = Date.now();
@@ -183,6 +190,49 @@ function App() {
     }
   };
 
+  // Password gate: wraps a protected action with password verification if needed
+  const withPasswordGate = (id: string, action: () => Promise<void>) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (profile && profile.has_password) {
+      setPasswordModal({
+        mode: 'verify',
+        profileId: id,
+        profileName: profile.name,
+        pendingAction: action,
+      });
+    } else {
+      action();
+    }
+  };
+
+  // Password-gated handler wrappers
+  const handleLaunchProfileGated = (id: string) => withPasswordGate(id, () => handleLaunchProfile(id));
+  const handleCloneProfileGated = (id: string) => withPasswordGate(id, () => handleCloneProfile(id));
+  const handleExportCookiesGated = (id: string) => withPasswordGate(id, () => handleExportCookies(id));
+  const handleImportCookiesGated = (id: string) => withPasswordGate(id, () => handleImportCookies(id));
+  const handleBackupProfileGated = (id: string) => withPasswordGate(id, () => handleBackupProfile(id));
+  const handleRestoreProfileGated = (id: string) => withPasswordGate(id, () => handleRestoreProfile(id));
+
+  const handleSetPassword = (id: string) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    setPasswordModal({
+      mode: 'set',
+      profileId: id,
+      profileName: profile.name,
+    });
+  };
+
+  const handleRemovePassword = (id: string) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    setPasswordModal({
+      mode: 'remove',
+      profileId: id,
+      profileName: profile.name,
+    });
+  };
+
   const handleDeleteProfile = async (id: string) => {
     try {
       await api.deleteProfile(id);
@@ -241,19 +291,49 @@ function App() {
             onUpdateProfiles={handleUpdateProfiles}
             onExportProfiles={handleExportProfiles}
             onImportProfiles={handleImportProfiles}
-            onExportCookies={handleExportCookies}
-            onImportCookies={handleImportCookies}
+            onExportCookies={handleExportCookiesGated}
+            onImportCookies={handleImportCookiesGated}
             onDeleteProfile={handleDeleteProfile}
             onDeleteProfiles={handleDeleteProfiles}
-            onLaunchProfile={handleLaunchProfile}
+            onLaunchProfile={handleLaunchProfileGated}
             onStopProfile={handleStopProfile}
-            onBackupProfile={handleBackupProfile}
-            onRestoreProfile={handleRestoreProfile}
-            onCloneProfile={handleCloneProfile}
+            onBackupProfile={handleBackupProfileGated}
+            onRestoreProfile={handleRestoreProfileGated}
+            onCloneProfile={handleCloneProfileGated}
+            onSetPassword={handleSetPassword}
+            onRemovePassword={handleRemovePassword}
           />
           )}
         </div>
       </div>
+
+      {/* Password Modal */}
+      {passwordModal && (
+        <PasswordModal
+          mode={passwordModal.mode}
+          profileName={passwordModal.profileName}
+          onClose={() => setPasswordModal(null)}
+          onConfirm={async (password: string) => {
+            const { mode, profileId, pendingAction } = passwordModal;
+            if (mode === 'set') {
+              await api.setProfilePassword(profileId, password);
+              setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, has_password: true } : p));
+              addToast('success', t('app.toasts.passwordSet'));
+              setPasswordModal(null);
+            } else if (mode === 'remove') {
+              await api.removeProfilePassword(profileId, password);
+              setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, has_password: false } : p));
+              addToast('success', t('app.toasts.passwordRemoved'));
+              setPasswordModal(null);
+            } else if (mode === 'verify') {
+              const valid = await api.verifyProfilePassword(profileId, password);
+              if (!valid) throw new Error(t('passwordModal.wrongPassword'));
+              setPasswordModal(null);
+              if (pendingAction) await pendingAction();
+            }
+          }}
+        />
+      )}
 
       {/* Toast notifications */}
       {toasts.length > 0 && (

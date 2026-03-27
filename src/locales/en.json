@@ -38,7 +38,10 @@
         "stopSuccess": "Profile closed",
         "stopError": "Close error: {{err}}",
         "cloneSuccess": "Profile cloned successfully",
-        "cloneError": "Clone error: {{err}}"
+        "cloneError": "Clone error: {{err}}",
+        "passwordSet": "Password set successfully",
+        "passwordRemoved": "Password removed",
+        "passwordError": "Password error: {{err}}"
       }
     },
     "profiles": {
@@ -78,6 +81,8 @@
         "backupData": "Backup Data",
         "restoreData": "Restore Data",
         "cloneProfile": "Clone profile",
+        "setPassword": "Set Password",
+        "removePassword": "Remove Password",
         "deleteProfile": "Delete profile"
       },
       "statusReady": "Ready",
@@ -239,6 +244,22 @@
       "cancel": "Cancel",
       "saving": "Saving...",
       "save": "Save"
+    },
+    "passwordModal": {
+      "setTitle": "Set Profile Password",
+      "verifyTitle": "Enter Password",
+      "removeTitle": "Remove Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "passwordLabel": "Password",
+      "enterPassword": "Enter password to continue",
+      "mismatch": "Passwords do not match",
+      "wrongPassword": "Incorrect password",
+      "minLength": "Password must be at least 4 characters",
+      "set": "Set Password",
+      "verify": "Confirm",
+      "remove": "Remove Password",
+      "cancel": "Cancel"
     }
   }
 }

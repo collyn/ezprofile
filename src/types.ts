@@ -10,6 +10,9 @@ declare global {
       updateProfiles: (ids: string[], data: Partial<CreateProfileInput>) => Promise<void>;
       deleteProfile: (id: string) => Promise<void>;
       cloneProfile: (id: string) => Promise<ProfileData>;
+      setProfilePassword: (id: string, password: string) => Promise<void>;
+      removeProfilePassword: (id: string, password: string) => Promise<void>;
+      verifyProfilePassword: (id: string, password: string) => Promise<boolean>;
       deleteProfiles: (ids: string[]) => Promise<void>;
       exportProfiles: (ids?: string[]) => Promise<{ success: boolean; error?: string; canceled?: boolean }>;
       importProfiles: () => Promise<{ success: boolean; count?: number; error?: string; canceled?: boolean }>;
@@ -94,6 +97,7 @@ export interface ProfileData {
   startup_url: string | null;
   startup_type: 'new_tab' | 'continue' | 'specific_pages';
   startup_urls: string | null;
+  has_password: boolean;
   status: 'ready' | 'running';
   last_run_at: string | null;
   created_at: string;

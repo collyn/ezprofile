@@ -61,6 +61,9 @@ export function initDatabase(dbPath: string): Database.Database {
     if (!columnNames.includes('startup_urls')) {
       db.exec('ALTER TABLE profiles ADD COLUMN startup_urls TEXT');
     }
+    if (!columnNames.includes('password_hash')) {
+      db.exec('ALTER TABLE profiles ADD COLUMN password_hash TEXT');
+    }
   } catch (error) {
     console.error('Database migration failed:', error);
   }

@@ -41,10 +41,14 @@ export function registerIpcHandlers(
     const profiles = profileManager.getAll();
     // Combine in-memory status (this instance) with DB status (other instances).
     // In-memory check wins for this instance; otherwise trust DB status.
-    return profiles.map((p) => ({
-      ...p,
-      status: chromeLauncher.isRunning(p.id) ? 'running' : p.status,
-    }));
+    // Strip password_hash from response — frontend only sees has_password boolean.
+    return profiles.map((p) => {
+      const { password_hash, ...rest } = p as any;
+      return {
+        ...rest,
+        status: chromeLauncher.isRunning(p.id) ? 'running' : p.status,
+      };
+    });
   });
 
   ipcMain.handle('profile:create', (_event, data) => {
@@ -61,6 +65,21 @@ export function registerIpcHandlers(
 
   ipcMain.handle('profile:clone', async (_event, id) => {
     return profileManager.clone(id);
+  });
+
+  // Password management
+  ipcMain.handle('profile:setPassword', async (_event, id: string, password: string) => {
+    profileManager.setPassword(id, password);
+  });
+
+  ipcMain.handle('profile:removePassword', async (_event, id: string, password: string) => {
+    const valid = profileManager.verifyPassword(id, password);
+    if (!valid) throw new Error('Wrong password');
+    profileManager.removePassword(id);
+  });
+
+  ipcMain.handle('profile:verifyPassword', async (_event, id: string, password: string) => {
+    return profileManager.verifyPassword(id, password);
   });
 
   ipcMain.handle('profile:delete', async (_event, id) => {

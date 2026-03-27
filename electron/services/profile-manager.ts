@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as bcrypt from 'bcryptjs';
 import { initDatabase } from '../database/schema';
 
 export interface Profile {
@@ -19,10 +20,12 @@ export interface Profile {
   startup_url: string | null;
   startup_type: 'new_tab' | 'continue' | 'specific_pages';
   startup_urls: string | null;
+  password_hash: string | null;
   status: 'ready' | 'running';
   last_run_at: string | null;
   created_at: string;
   updated_at: string;
+  has_password: boolean;
 }
 
 export interface CreateProfileInput {
@@ -51,18 +54,25 @@ export class ProfileManager {
     }
   }
 
+  private addHasPassword(profile: any): Profile {
+    return { ...profile, has_password: !!profile.password_hash };
+  }
+
   getAll(): Profile[] {
-    return this.db.prepare('SELECT * FROM profiles ORDER BY created_at DESC').all() as Profile[];
+    const rows = this.db.prepare('SELECT * FROM profiles ORDER BY created_at DESC').all() as any[];
+    return rows.map(r => this.addHasPassword(r));
   }
 
   getById(id: string): Profile | undefined {
-    return this.db.prepare('SELECT * FROM profiles WHERE id = ?').get(id) as Profile | undefined;
+    const row = this.db.prepare('SELECT * FROM profiles WHERE id = ?').get(id) as any | undefined;
+    return row ? this.addHasPassword(row) : undefined;
   }
 
   getMany(ids: string[]): Profile[] {
     if (ids.length === 0) return [];
     const placeholders = ids.map(() => '?').join(',');
-    return this.db.prepare(`SELECT * FROM profiles WHERE id IN (${placeholders}) ORDER BY created_at DESC`).all(...ids) as Profile[];
+    const rows = this.db.prepare(`SELECT * FROM profiles WHERE id IN (${placeholders}) ORDER BY created_at DESC`).all(...ids) as any[];
+    return rows.map(r => this.addHasPassword(r));
   }
 
   create(input: CreateProfileInput): Profile {
@@ -234,6 +244,22 @@ export class ProfileManager {
     );
 
     return this.getById(newId)!;
+  }
+
+  // Password management
+  setPassword(id: string, password: string): void {
+    const hash = bcrypt.hashSync(password, 10);
+    this.db.prepare("UPDATE profiles SET password_hash = ?, updated_at = datetime('now') WHERE id = ?").run(hash, id);
+  }
+
+  removePassword(id: string): void {
+    this.db.prepare("UPDATE profiles SET password_hash = NULL, updated_at = datetime('now') WHERE id = ?").run(id);
+  }
+
+  verifyPassword(id: string, password: string): boolean {
+    const row = this.db.prepare('SELECT password_hash FROM profiles WHERE id = ?').get(id) as { password_hash: string | null } | undefined;
+    if (!row || !row.password_hash) return true; // No password set = always pass
+    return bcrypt.compareSync(password, row.password_hash);
   }
 
   // Groups

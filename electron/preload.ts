@@ -13,6 +13,7 @@ export interface ProfileData {
   browser_version: string | null;
   user_data_dir: string;
   startup_url: string | null;
+  has_password: boolean;
   status: 'ready' | 'running';
   last_run_at: string | null;
   created_at: string;
@@ -46,6 +47,9 @@ const electronAPI = {
   updateProfile: (id: string, data: Partial<CreateProfileInput>): Promise<ProfileData> => ipcRenderer.invoke('profile:update', id, data),
   updateProfiles: (ids: string[], data: Partial<CreateProfileInput>): Promise<void> => ipcRenderer.invoke('profile:updateBatch', ids, data),
   cloneProfile: (id: string): Promise<ProfileData> => ipcRenderer.invoke('profile:clone', id),
+  setProfilePassword: (id: string, password: string): Promise<void> => ipcRenderer.invoke('profile:setPassword', id, password),
+  removeProfilePassword: (id: string, password: string): Promise<void> => ipcRenderer.invoke('profile:removePassword', id, password),
+  verifyProfilePassword: (id: string, password: string): Promise<boolean> => ipcRenderer.invoke('profile:verifyPassword', id, password),
   deleteProfile: (id: string): Promise<void> => ipcRenderer.invoke('profile:delete', id),
   deleteProfiles: (ids: string[]): Promise<void> => ipcRenderer.invoke('profile:deleteMany', ids),
   exportProfiles: (ids?: string[]): Promise<{ success: boolean; error?: string; canceled?: boolean }> => ipcRenderer.invoke('profile:export', ids),

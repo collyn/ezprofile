@@ -19,15 +19,17 @@ interface ProfileListProps {
   onUpdateProfiles: (ids: string[], input: Partial<CreateProfileInput>) => Promise<void>;
   onExportProfiles: (ids?: string[]) => Promise<void>;
   onImportProfiles: () => Promise<void>;
-  onExportCookies: (id: string) => Promise<void>;
-  onImportCookies: (id: string) => Promise<void>;
+  onExportCookies: (id: string) => void | Promise<void>;
+  onImportCookies: (id: string) => void | Promise<void>;
   onDeleteProfile: (id: string) => Promise<void>;
   onDeleteProfiles: (ids: string[]) => Promise<void>;
-  onLaunchProfile: (id: string) => Promise<void>;
+  onLaunchProfile: (id: string) => void | Promise<void>;
   onStopProfile: (id: string) => Promise<void>;
-  onBackupProfile: (id: string) => Promise<void>;
-  onRestoreProfile: (id: string) => Promise<void>;
-  onCloneProfile: (id: string) => Promise<void>;
+  onBackupProfile: (id: string) => void | Promise<void>;
+  onRestoreProfile: (id: string) => void | Promise<void>;
+  onCloneProfile: (id: string) => void | Promise<void>;
+  onSetPassword: (id: string) => void;
+  onRemovePassword: (id: string) => void;
 }
 
 function formatTimeAgo(dateStr: string | null): string {
@@ -61,6 +63,8 @@ export default function ProfileList({
   onBackupProfile,
   onRestoreProfile,
   onCloneProfile,
+  onSetPassword,
+  onRemovePassword,
 }: ProfileListProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -459,6 +463,14 @@ export default function ProfileList({
             onCloneProfile(id);
             setContextMenu(null);
           }}
+          onSetPassword={(id: string) => {
+            onSetPassword(id);
+            setContextMenu(null);
+          }}
+          onRemovePassword={(id: string) => {
+            onRemovePassword(id);
+            setContextMenu(null);
+          }}
         />
       )}
 
@@ -503,7 +515,15 @@ const ProfileRow = memo(function ProfileRow({
         </div>
       </td>
       <td>
-        <span style={{ fontWeight: 500 }}>{profile.name}</span>
+        <span style={{ fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {profile.has_password && (
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" width="12" height="12" style={{ flexShrink: 0 }}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          )}
+          {profile.name}
+        </span>
       </td>
       <td>
         <div className="status-badge">
