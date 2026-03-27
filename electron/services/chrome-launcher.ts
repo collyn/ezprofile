@@ -255,6 +255,14 @@ export class ChromeLauncher {
       args.push(options.startupUrl);
     }
 
+    // Force session restore when startup type is 'continue'.
+    // This ensures tabs are restored even after unclean shutdown (e.g. SIGTERM
+    // from another RDP session), especially needed on Windows where modifying
+    // Preferences alone is not reliable.
+    if (!options.startupType || options.startupType === 'continue') {
+      args.push('--restore-last-session');
+    }
+
     // Launch Chrome
     const child = spawn(chromePath, args, {
       detached: true,
@@ -318,48 +326,72 @@ export class ChromeLauncher {
   }
 
   /**
-   * Check if a Chrome profile is actually running by looking for the
-   * SingletonLock file AND verifying the PID is alive.
+   * Check if a Chrome profile is actually running by looking for lock files
+   * and verifying the process is alive.
+   * - Linux/macOS: SingletonLock symlink → "hostname-PID"
+   * - Windows: lockfile in user data dir
    * Cleans up stale lock files from crashed/closed Chrome sessions.
    */
   static isProfileActuallyRunning(userDataDir: string): boolean {
-    const lockPath = path.join(userDataDir, 'SingletonLock');
-    try {
-      const stat = fs.lstatSync(lockPath);
+    const platform = os.platform();
 
-      if (stat.isSymbolicLink()) {
-        // Linux/macOS: SingletonLock is a symlink → "hostname-PID"
-        try {
-          const linkTarget = fs.readlinkSync(lockPath);
-          const pidMatch = linkTarget.match(/-(\d+)$/);
-          if (pidMatch) {
-            const pid = parseInt(pidMatch[1]);
-            try {
-              // Signal 0 checks if process exists without killing it
-              process.kill(pid, 0);
-              return true; // Process is alive
-            } catch {
-              // Process is dead — clean up stale lock
-              console.log(`[ChromeLauncher] Cleaning up stale SingletonLock (PID ${pid} is dead)`);
-              try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
-              return false;
-            }
-          }
-        } catch {
-          // Can't read symlink — assume stale, clean up
-          try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+    if (platform === 'win32') {
+      // Windows: Chrome creates a "lockfile" in the user data directory
+      const lockfilePath = path.join(userDataDir, 'lockfile');
+      try {
+        // Try to open the lockfile exclusively — if Chrome is running,
+        // the file will be locked and this will throw
+        const fd = fs.openSync(lockfilePath, 'r+');
+        // If we can open it, Chrome is NOT running (stale lockfile)
+        fs.closeSync(fd);
+        // Clean up stale lockfile
+        try { fs.unlinkSync(lockfilePath); } catch { /* ignore */ }
+        return false;
+      } catch (err: any) {
+        if (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'EACCES') {
+          // File is locked by Chrome → Chrome is running
+          return true;
+        }
+        if (err.code === 'ENOENT') {
+          // lockfile doesn't exist → Chrome not running
           return false;
         }
-      } else if (stat.isFile()) {
-        // Windows: SingletonLock is a regular file.
-        // We can't easily get PID from it, so check if the profile's
-        // internal databases are locked (try to open and immediately close)
-        return true;
+        // Other error — assume not running
+        return false;
       }
-    } catch {
-      // File doesn't exist = Chrome not running
+    } else {
+      // Linux/macOS: SingletonLock is a symlink → "hostname-PID"
+      const lockPath = path.join(userDataDir, 'SingletonLock');
+      try {
+        const stat = fs.lstatSync(lockPath);
+        if (stat.isSymbolicLink()) {
+          try {
+            const linkTarget = fs.readlinkSync(lockPath);
+            const pidMatch = linkTarget.match(/-(\d+)$/);
+            if (pidMatch) {
+              const pid = parseInt(pidMatch[1]);
+              try {
+                // Signal 0 checks if process exists without killing it
+                process.kill(pid, 0);
+                return true; // Process is alive
+              } catch {
+                // Process is dead — clean up stale lock
+                console.log(`[ChromeLauncher] Cleaning up stale SingletonLock (PID ${pid} is dead)`);
+                try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+                return false;
+              }
+            }
+          } catch {
+            // Can't read symlink — assume stale, clean up
+            try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+            return false;
+          }
+        }
+      } catch {
+        // File doesn't exist = Chrome not running
+      }
+      return false;
     }
-    return false;
   }
 
   /**
@@ -374,10 +406,8 @@ export class ChromeLauncher {
     try {
       if (platform === 'win32') {
         // On Windows, find and kill Chrome by its command-line user-data-dir
-        // Use wmic or taskkill; try execSync for simplicity
         const { execSync } = require('child_process');
         try {
-          // Find Chrome PIDs using the specific user-data-dir
           const normalizedDir = userDataDir.replace(/\\/g, '\\\\');
           const result = execSync(
             `wmic process where "CommandLine like '%--user-data-dir=${normalizedDir}%'" get ProcessId /format:list`,
@@ -393,10 +423,10 @@ export class ChromeLauncher {
             }
           }
         } catch {
-          // wmic may fail; try taskkill as fallback
+          // wmic may fail; ignore
         }
-        // Also clean up lock files on Windows
-        for (const file of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+        // Clean up lock files on Windows
+        for (const file of ['lockfile', 'SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
           try { fs.unlinkSync(path.join(userDataDir, file)); } catch { /* ignore */ }
         }
         return true;
@@ -407,17 +437,29 @@ export class ChromeLauncher {
         if (pidMatch) {
           const pid = parseInt(pidMatch[1]);
           try {
-            process.kill(pid, 'SIGTERM');
+            // On macOS/Linux, also kill child processes (Chrome helpers, renderers)
+            const { execSync } = require('child_process');
+            try {
+              execSync(`kill -- -${pid}`, { timeout: 3000 });
+            } catch {
+              // Process group kill may fail, fall back to direct kill
+              process.kill(pid, 'SIGTERM');
+            }
             console.log(`[ChromeLauncher] Killed Chrome process ${pid} from another session`);
-            return true;
           } catch (err: any) {
             if (err.code === 'ESRCH') {
-              // Process doesn't exist anymore, clean up stale lock
-              try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
-              return true;
+              // Process doesn't exist anymore
+              console.log(`[ChromeLauncher] Process ${pid} already dead, cleaning up`);
+            } else {
+              console.error(`[ChromeLauncher] Failed to kill process ${pid}:`, err);
+              return false;
             }
-            console.error(`[ChromeLauncher] Failed to kill process ${pid}:`, err);
           }
+          // Clean up all lock files
+          for (const file of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+            try { fs.unlinkSync(path.join(userDataDir, file)); } catch { /* ignore */ }
+          }
+          return true;
         }
       }
     } catch (err) {
