@@ -19,6 +19,7 @@ interface ContextMenuProps {
   onImportCookies: (id: string) => void;
   onBackupProfile: (id: string) => void;
   onRestoreProfile: (id: string) => void;
+  onCloneProfile: (id: string) => void;
 }
 
 export default function ContextMenu({
@@ -35,6 +36,7 @@ export default function ContextMenu({
   onImportCookies,
   onBackupProfile,
   onRestoreProfile,
+  onCloneProfile,
 }: ContextMenuProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -112,6 +114,14 @@ export default function ContextMenu({
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
         {t('profiles.contextMenu.copyName')}
+      </button>
+
+      <button className="context-menu-item" onClick={() => onCloneProfile(profileId)}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+        {t('profiles.contextMenu.cloneProfile')}
       </button>
 
       <div className="context-menu-divider" />

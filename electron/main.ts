@@ -76,12 +76,21 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => {
-  // Stop all Chrome instances
+app.on('window-all-closed', async () => {
+  // Gracefully stop all Chrome instances (wait for cookie/session flush)
   if (chromeLauncher) {
-    chromeLauncher.stopAll();
+    await chromeLauncher.stopAll();
   }
   if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('before-quit', async (event) => {
+  // Safety net: ensure Chrome instances are stopped before quit
+  if (chromeLauncher && chromeLauncher.getRunningProfiles().length > 0) {
+    event.preventDefault();
+    await chromeLauncher.stopAll();
     app.quit();
   }
 });

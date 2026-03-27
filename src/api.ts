@@ -61,6 +61,25 @@ export const mockElectronAPI: typeof window.electronAPI = {
     const idx = mockProfiles.findIndex((p) => p.id === id);
     if (idx >= 0) mockProfiles.splice(idx, 1);
   },
+  cloneProfile: async (id) => {
+    const source = mockProfiles.find((p) => p.id === id);
+    if (!source) throw new Error('Not found');
+    const cloned = createMockProfile({
+      name: `${source.name} (Copy)`,
+      group_name: source.group_name || undefined,
+      proxy_type: source.proxy_type || undefined,
+      proxy_host: source.proxy_host || undefined,
+      proxy_port: source.proxy_port || undefined,
+      proxy_user: source.proxy_user || undefined,
+      proxy_pass: source.proxy_pass || undefined,
+      notes: source.notes || undefined,
+      startup_url: source.startup_url || undefined,
+      startup_type: source.startup_type || undefined,
+      startup_urls: source.startup_urls || undefined,
+    });
+    mockProfiles.unshift(cloned);
+    return cloned;
+  },
   deleteProfiles: async (ids) => {
     ids.forEach((id) => {
       const idx = mockProfiles.findIndex((p) => p.id === id);

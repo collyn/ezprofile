@@ -59,14 +59,18 @@ export function registerIpcHandlers(
     profileManager.updateMany(ids, data);
   });
 
-  ipcMain.handle('profile:delete', (_event, id) => {
-    chromeLauncher.stop(id);
+  ipcMain.handle('profile:clone', async (_event, id) => {
+    return profileManager.clone(id);
+  });
+
+  ipcMain.handle('profile:delete', async (_event, id) => {
+    await chromeLauncher.stop(id);
     profileManager.delete(id);
   });
 
-  ipcMain.handle('profile:deleteMany', (_event, ids) => {
+  ipcMain.handle('profile:deleteMany', async (_event, ids) => {
     for (const id of ids) {
-      chromeLauncher.stop(id);
+      await chromeLauncher.stop(id);
     }
     profileManager.deleteMany(ids);
   });
@@ -170,9 +174,9 @@ export function registerIpcHandlers(
     }
   });
 
-  ipcMain.handle('chrome:stop', (_event, id) => {
+  ipcMain.handle('chrome:stop', async (_event, id) => {
     const profile = profileManager.getById(id);
-    const stopped = chromeLauncher.stop(id);
+    const stopped = await chromeLauncher.stop(id);
 
     // If not stopped locally, try stopping from another session via lock file
     if (!stopped && profile) {

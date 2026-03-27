@@ -45,6 +45,7 @@ const electronAPI = {
   createProfile: (data: CreateProfileInput): Promise<ProfileData> => ipcRenderer.invoke('profile:create', data),
   updateProfile: (id: string, data: Partial<CreateProfileInput>): Promise<ProfileData> => ipcRenderer.invoke('profile:update', id, data),
   updateProfiles: (ids: string[], data: Partial<CreateProfileInput>): Promise<void> => ipcRenderer.invoke('profile:updateBatch', ids, data),
+  cloneProfile: (id: string): Promise<ProfileData> => ipcRenderer.invoke('profile:clone', id),
   deleteProfile: (id: string): Promise<void> => ipcRenderer.invoke('profile:delete', id),
   deleteProfiles: (ids: string[]): Promise<void> => ipcRenderer.invoke('profile:deleteMany', ids),
   exportProfiles: (ids?: string[]): Promise<{ success: boolean; error?: string; canceled?: boolean }> => ipcRenderer.invoke('profile:export', ids),

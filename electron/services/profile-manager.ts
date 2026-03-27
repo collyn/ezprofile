@@ -189,6 +189,53 @@ export class ProfileManager {
     this.db.prepare(`UPDATE profiles SET ${updates} WHERE id = ?`).run(status, id);
   }
 
+  clone(id: string): Profile {
+    const source = this.getById(id);
+    if (!source) throw new Error('Source profile not found');
+
+    const newId = uuidv4();
+    const newUserDataDir = path.join(this.profilesBaseDir, newId);
+
+    // Deep-copy the entire user_data_dir (cookies, history, sessions, extensions, etc.)
+    if (fs.existsSync(source.user_data_dir)) {
+      fs.cpSync(source.user_data_dir, newUserDataDir, { recursive: true });
+    } else {
+      fs.mkdirSync(newUserDataDir, { recursive: true });
+    }
+
+    // Remove any lock files from the cloned profile
+    const singletonLock = path.join(newUserDataDir, 'SingletonLock');
+    if (fs.existsSync(singletonLock)) {
+      try { fs.unlinkSync(singletonLock); } catch {}
+    }
+    const defaultSingletonLock = path.join(newUserDataDir, 'Default', 'SingletonLock');
+    if (fs.existsSync(defaultSingletonLock)) {
+      try { fs.unlinkSync(defaultSingletonLock); } catch {}
+    }
+
+    this.db.prepare(`
+      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, notes, browser_version, user_data_dir, startup_url, startup_type, startup_urls)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      newId,
+      `${source.name} (Copy)`,
+      source.group_name,
+      source.proxy_type,
+      source.proxy_host,
+      source.proxy_port,
+      source.proxy_user,
+      source.proxy_pass,
+      source.notes,
+      source.browser_version,
+      newUserDataDir,
+      source.startup_url,
+      source.startup_type || 'continue',
+      source.startup_urls,
+    );
+
+    return this.getById(newId)!;
+  }
+
   // Groups
   getGroups(): { id: string; name: string; color: string }[] {
     return this.db.prepare('SELECT * FROM groups ORDER BY name').all() as any[];

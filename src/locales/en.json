@@ -36,7 +36,9 @@
         "launchSuccess": "Profile opened",
         "launchError": "Launch error: {{err}}",
         "stopSuccess": "Profile closed",
-        "stopError": "Close error: {{err}}"
+        "stopError": "Close error: {{err}}",
+        "cloneSuccess": "Profile cloned successfully",
+        "cloneError": "Clone error: {{err}}"
       }
     },
     "profiles": {
@@ -75,6 +77,7 @@
         "exportCookies": "Export Cookies",
         "backupData": "Backup Data",
         "restoreData": "Restore Data",
+        "cloneProfile": "Clone profile",
         "deleteProfile": "Delete profile"
       },
       "statusReady": "Ready",

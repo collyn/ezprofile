@@ -173,6 +173,16 @@ function App() {
     }
   };
 
+  const handleCloneProfile = async (id: string) => {
+    try {
+      const cloned = await api.cloneProfile(id);
+      setProfiles((prev) => [cloned, ...prev]);
+      addToast('success', t('app.toasts.cloneSuccess'));
+    } catch (err: any) {
+      addToast('error', t('app.toasts.cloneError', { err: err.message }));
+    }
+  };
+
   const handleDeleteProfile = async (id: string) => {
     try {
       await api.deleteProfile(id);
@@ -239,6 +249,7 @@ function App() {
             onStopProfile={handleStopProfile}
             onBackupProfile={handleBackupProfile}
             onRestoreProfile={handleRestoreProfile}
+            onCloneProfile={handleCloneProfile}
           />
           )}
         </div>

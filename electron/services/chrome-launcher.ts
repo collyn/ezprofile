@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -288,23 +288,90 @@ export class ChromeLauncher {
     return child;
   }
 
-  stop(profileId: string): boolean {
-    const process = this.processes.get(profileId);
-    if (process && process.exitCode === null && !process.killed) {
-      process.kill('SIGTERM');
+  /**
+   * Gracefully stop a Chrome process, giving it time to flush cookies/session.
+   * - Linux/macOS: sends SIGINT (Chrome handles it like Ctrl+C → clean shutdown)
+   * - Windows: uses taskkill without /F to send WM_CLOSE (graceful close)
+   * Waits up to 5 seconds for Chrome to exit, then force kills.
+   */
+  async stop(profileId: string): Promise<boolean> {
+    const proc = this.processes.get(profileId);
+    if (!proc || proc.exitCode !== null || proc.killed) {
       this.processes.delete(profileId);
-      return true;
+      return false;
     }
+
+    const pid = proc.pid;
+    console.log(`[ChromeLauncher] Gracefully stopping profile ${profileId} (PID: ${pid})`);
+
+    try {
+      if (process.platform === 'win32') {
+        // Windows: taskkill without /F sends WM_CLOSE → graceful shutdown
+        // /T kills the process tree (main + renderer processes)
+        try {
+          execSync(`taskkill /PID ${pid} /T`, { timeout: 2000, stdio: 'ignore' });
+        } catch {
+          // taskkill may fail if process already exiting; ignore
+        }
+      } else {
+        // Linux/macOS: SIGINT triggers Chrome's graceful shutdown handler
+        proc.kill('SIGINT');
+      }
+
+      // Wait for Chrome to exit gracefully (flush cookies, session data)
+      const exited = await this.waitForExit(proc, 5000);
+
+      if (!exited) {
+        console.log(`[ChromeLauncher] Profile ${profileId} did not exit in time, force killing`);
+        if (process.platform === 'win32') {
+          try {
+            execSync(`taskkill /PID ${pid} /T /F`, { timeout: 2000, stdio: 'ignore' });
+          } catch { /* ignore */ }
+        } else {
+          try { proc.kill('SIGKILL'); } catch { /* ignore */ }
+        }
+      }
+    } catch (err) {
+      console.warn(`[ChromeLauncher] Error stopping profile ${profileId}:`, err);
+      // Attempt force kill as last resort
+      try { proc.kill('SIGKILL'); } catch { /* ignore */ }
+    }
+
     this.processes.delete(profileId);
-    return false;
+    return true;
   }
 
-  stopAll(): void {
-    for (const [id, process] of this.processes) {
-      if (process.exitCode === null && !process.killed) {
-        process.kill('SIGTERM');
+  /**
+   * Wait for a child process to exit within the given timeout.
+   * Returns true if the process exited, false if timed out.
+   */
+  private waitForExit(proc: ChildProcess, timeoutMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (proc.exitCode !== null || proc.killed) {
+        resolve(true);
+        return;
       }
+
+      const timer = setTimeout(() => {
+        proc.removeListener('exit', onExit);
+        resolve(false);
+      }, timeoutMs);
+
+      const onExit = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+
+      proc.once('exit', onExit);
+    });
+  }
+
+  async stopAll(): Promise<void> {
+    const stopPromises: Promise<boolean>[] = [];
+    for (const [id] of this.processes) {
+      stopPromises.push(this.stop(id));
     }
+    await Promise.all(stopPromises);
     this.processes.clear();
   }
 

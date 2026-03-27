@@ -9,6 +9,7 @@ declare global {
       updateProfile: (id: string, data: Partial<CreateProfileInput>) => Promise<ProfileData>;
       updateProfiles: (ids: string[], data: Partial<CreateProfileInput>) => Promise<void>;
       deleteProfile: (id: string) => Promise<void>;
+      cloneProfile: (id: string) => Promise<ProfileData>;
       deleteProfiles: (ids: string[]) => Promise<void>;
       exportProfiles: (ids?: string[]) => Promise<{ success: boolean; error?: string; canceled?: boolean }>;
       importProfiles: () => Promise<{ success: boolean; count?: number; error?: string; canceled?: boolean }>;

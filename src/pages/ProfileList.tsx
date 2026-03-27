@@ -27,6 +27,7 @@ interface ProfileListProps {
   onStopProfile: (id: string) => Promise<void>;
   onBackupProfile: (id: string) => Promise<void>;
   onRestoreProfile: (id: string) => Promise<void>;
+  onCloneProfile: (id: string) => Promise<void>;
 }
 
 function formatTimeAgo(dateStr: string | null): string {
@@ -59,6 +60,7 @@ export default function ProfileList({
   onStopProfile,
   onBackupProfile,
   onRestoreProfile,
+  onCloneProfile,
 }: ProfileListProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -451,6 +453,10 @@ export default function ProfileList({
           }}
           onRestoreProfile={(id: string) => {
             onRestoreProfile(id);
+            setContextMenu(null);
+          }}
+          onCloneProfile={(id: string) => {
+            onCloneProfile(id);
             setContextMenu(null);
           }}
         />

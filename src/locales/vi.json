@@ -36,7 +36,9 @@
         "launchSuccess": "Đã mở profile",
         "launchError": "Lỗi mở profile: {{err}}",
         "stopSuccess": "Đã đóng profile",
-        "stopError": "Lỗi đóng profile: {{err}}"
+        "stopError": "Lỗi đóng profile: {{err}}",
+        "cloneSuccess": "Đã nhân bản profile thành công",
+        "cloneError": "Lỗi nhân bản: {{err}}"
       }
     },
     "profiles": {
@@ -75,6 +77,7 @@
         "exportCookies": "Xuất Cookies",
         "backupData": "Sao lưu dữ liệu",
         "restoreData": "Phục hồi dữ liệu",
+        "cloneProfile": "Nhân bản profile",
         "deleteProfile": "Xóa profile"
       },
       "statusReady": "Sẵn sàng",
