@@ -24,6 +24,7 @@ export function initDatabase(dbPath: string): Database.Database {
       proxy_port INTEGER,
       proxy_user TEXT,
       proxy_pass TEXT,
+      proxy_enabled INTEGER DEFAULT 0,
       notes TEXT,
       browser_version TEXT DEFAULT 'latest',
       user_data_dir TEXT NOT NULL,
@@ -46,6 +47,18 @@ export function initDatabase(dbPath: string): Database.Database {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS proxies (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'http',
+      host TEXT NOT NULL,
+      port INTEGER NOT NULL,
+      username TEXT,
+      password TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrations
@@ -63,6 +76,9 @@ export function initDatabase(dbPath: string): Database.Database {
     }
     if (!columnNames.includes('password_hash')) {
       db.exec('ALTER TABLE profiles ADD COLUMN password_hash TEXT');
+    }
+    if (!columnNames.includes('proxy_enabled')) {
+      db.exec('ALTER TABLE profiles ADD COLUMN proxy_enabled INTEGER DEFAULT 0');
     }
   } catch (error) {
     console.error('Database migration failed:', error);

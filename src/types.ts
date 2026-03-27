@@ -24,6 +24,12 @@ declare global {
       // Proxy operations
       checkProxy: (type: string, host: string, port: number, user?: string, pass?: string) => Promise<ProxyCheckResult>;
 
+      // Proxy list management
+      getProxies: () => Promise<ProxyData[]>;
+      createProxy: (data: { name: string; type: string; host: string; port: number; username?: string; password?: string }) => Promise<ProxyData>;
+      updateProxy: (id: string, data: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string }) => Promise<ProxyData>;
+      deleteProxy: (id: string) => Promise<void>;
+
       // Cookie and Backup operations
       importCookies: (profileId: string) => Promise<{ success: boolean; error?: string; canceled?: boolean }>;
       exportCookies: (profileId: string) => Promise<{ success: boolean; error?: string; canceled?: boolean }>;
@@ -48,6 +54,9 @@ declare global {
       getInstalledBrowserVersions: () => Promise<InstalledBrowserVersion[]>;
       downloadBrowserVersion: (version: string, channel: string) => Promise<{ success: boolean; error?: string }>;
       deleteBrowserVersion: (version: string) => Promise<{ success: boolean; error?: string }>;
+      addCustomBrowserVersion: () => Promise<{ success: boolean; error?: string; canceled?: boolean; version?: string; chromePath?: string }>;
+      getDefaultBrowserVersion: () => Promise<string>;
+      setDefaultBrowserVersion: (version: string) => Promise<{ success: boolean }>;
 
       // Window controls
       minimizeWindow: () => Promise<void>;
@@ -91,6 +100,7 @@ export interface ProfileData {
   proxy_port: number | null;
   proxy_user: string | null;
   proxy_pass: string | null;
+  proxy_enabled: number;
   notes: string | null;
   browser_version: string | null;
   user_data_dir: string;
@@ -112,6 +122,7 @@ export interface CreateProfileInput {
   proxy_port?: number;
   proxy_user?: string;
   proxy_pass?: string;
+  proxy_enabled?: number;
   notes?: string;
   startup_url?: string;
   startup_type?: 'new_tab' | 'continue' | 'specific_pages';
@@ -139,4 +150,16 @@ export interface ProxyCheckResult {
   country?: string;
   latency?: number;
   error?: string;
+}
+
+export interface ProxyData {
+  id: string;
+  name: string;
+  type: string;
+  host: string;
+  port: number;
+  username: string | null;
+  password: string | null;
+  created_at: string;
+  updated_at: string;
 }

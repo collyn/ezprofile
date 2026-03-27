@@ -8,6 +8,7 @@ import GroupManagerModal from '../components/GroupManagerModal';
 import BatchAssignGroupModal from '../components/BatchAssignGroupModal';
 import BatchAssignProxyModal from '../components/BatchAssignProxyModal';
 import BrowserVersionModal from '../components/BrowserVersionModal';
+import ProxyManagerModal from '../components/ProxyManagerModal';
 
 interface ProfileListProps {
   profiles: ProfileData[];
@@ -76,6 +77,7 @@ export default function ProfileList({
   const [showBatchGroupModal, setShowBatchGroupModal] = useState(false);
   const [showBatchProxyModal, setShowBatchProxyModal] = useState(false);
   const [showBrowserVersionModal, setShowBrowserVersionModal] = useState(false);
+  const [showProxyManager, setShowProxyManager] = useState(false);
   const [editingProfile, setEditingProfile] = useState<ProfileData | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -211,6 +213,12 @@ export default function ProfileList({
               </svg>
               {t('profiles.manageChrome')}
             </button>
+            <button className="btn" onClick={() => setShowProxyManager(true)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              {t('profiles.manageProxies')}
+            </button>
             <div className="toolbar-separator" />
             <button className="btn btn-outline btn-sm" onClick={() => onImportProfiles()}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -333,6 +341,9 @@ export default function ProfileList({
                 <th onClick={() => handleSort('group_name')} style={{ cursor: 'pointer' }}>
                   {t('profiles.table.group')} <SortIcon field="group_name" />
                 </th>
+                <th onClick={() => handleSort('browser_version')} style={{ cursor: 'pointer' }}>
+                  {t('profiles.table.version')} <SortIcon field="browser_version" />
+                </th>
                 <th>{t('profiles.table.notes')}</th>
                 <th style={{ width: 120, textAlign: 'center' }}></th>
                 <th style={{ width: 40 }}></th>
@@ -349,6 +360,7 @@ export default function ProfileList({
                   onContextMenu={handleContextMenu}
                   onLaunch={onLaunchProfile}
                   onStop={onStopProfile}
+                  onToggleProxy={(id, enabled) => onUpdateProfile(id, { proxy_enabled: enabled ? 1 : 0 })}
                 />
               ))}
             </tbody>
@@ -477,6 +489,10 @@ export default function ProfileList({
       {showBrowserVersionModal && (
         <BrowserVersionModal onClose={() => setShowBrowserVersionModal(false)} />
       )}
+
+      {showProxyManager && (
+        <ProxyManagerModal onClose={() => setShowProxyManager(false)} />
+      )}
     </>
   );
 }
@@ -490,6 +506,7 @@ const ProfileRow = memo(function ProfileRow({
   onContextMenu,
   onLaunch,
   onStop,
+  onToggleProxy,
 }: {
   profile: ProfileData;
   isSelected: boolean;
@@ -498,6 +515,7 @@ const ProfileRow = memo(function ProfileRow({
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   onLaunch: (id: string) => void;
   onStop: (id: string) => void;
+  onToggleProxy: (id: string, enabled: boolean) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -532,11 +550,38 @@ const ProfileRow = memo(function ProfileRow({
         </div>
       </td>
       <td>
-        <div className="proxy-badge">
-          <span className={`proxy-dot ${profile.proxy_host ? 'has-proxy' : 'no-proxy'}`} />
-          {profile.proxy_host
-            ? `${profile.proxy_host}:${profile.proxy_port}`
-            : t('profiles.proxyLocal')}
+        <div className="proxy-badge" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              if (profile.status === 'running') return;
+              onToggleProxy(profile.id, !profile.proxy_enabled); 
+            }}
+            style={{
+              width: 26, height: 14, borderRadius: 7, position: 'relative', 
+              cursor: profile.status === 'running' ? 'not-allowed' : 'pointer', 
+              opacity: profile.status === 'running' ? 0.6 : 1,
+              flexShrink: 0,
+              background: profile.proxy_enabled ? '#34a853' : 'var(--border-color)', transition: 'background 0.2s',
+            }}
+            title={profile.status === 'running' ? t('profileForm.proxyRunningNote', 'Cannot change while running') : (profile.proxy_enabled ? 'Proxy ON' : 'Proxy OFF')}
+          >
+            <div style={{
+              width: 10, height: 10, borderRadius: '50%', background: '#fff', position: 'absolute',
+              top: 2, left: profile.proxy_enabled ? 14 : 2, transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+            }} />
+          </div>
+          {profile.proxy_host ? (
+            <span style={{ opacity: profile.proxy_enabled ? 1 : 0.4 }}>
+              <span className={`proxy-dot ${profile.proxy_host ? 'has-proxy' : 'no-proxy'}`} />
+              {`${profile.proxy_host}:${profile.proxy_port}`}
+            </span>
+          ) : (
+            <span style={{ opacity: 0.4 }}>
+              <span className="proxy-dot no-proxy" />
+              {t('profiles.proxyLocal')}
+            </span>
+          )}
         </div>
       </td>
       <td>
@@ -553,6 +598,11 @@ const ProfileRow = memo(function ProfileRow({
         ) : (
           <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>-</span>
         )}
+      </td>
+      <td>
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+          {profile.browser_version || 'System'}
+        </span>
       </td>
       <td>
         <span className="notes-cell">{profile.notes || '-'}</span>

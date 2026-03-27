@@ -6,7 +6,8 @@ import * as http from 'http';
 import AdmZip from 'adm-zip';
 import { app, WebContents } from 'electron';
 
-const CHROME_VERSIONS_API = 'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json';
+const CHROME_VERSIONS_API = 'https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json';
+const CHROME_STABLE_API = 'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json';
 
 export interface ChromeVersionInfo {
   version: string;
@@ -24,10 +25,12 @@ export interface InstalledVersion {
 }
 
 interface VersionsMetadata {
+  defaultVersion?: string; // 'system' or a version string
   versions: {
     version: string;
     channel: string;
     installedAt: string;
+    chromePath?: string; // For custom versions
   }[];
 }
 
@@ -61,9 +64,17 @@ export class BrowserVersionManager {
   }
 
   /**
-   * Get the Chrome binary path inside an extracted version directory
+   * Get the Chrome binary path inside an extracted version directory.
+   * For custom versions, returns the stored chromePath from metadata.
    */
   getChromeBinaryPath(version: string): string {
+    // Check if this is a custom version with a stored path
+    const metadata = this.loadMetadata();
+    const entry = metadata.versions.find(v => v.version === version);
+    if (entry?.chromePath) {
+      return entry.chromePath;
+    }
+
     const platform = os.platform();
     const platformKey = this.getPlatformKey();
     const versionDir = path.join(this.browsersDir, version);
@@ -88,40 +99,71 @@ export class BrowserVersionManager {
   }
 
   /**
-   * Fetch available Chrome versions from Google's API
+   * Fetch available Chrome versions from Google's APIs.
+   * Fetches both Stable channels (Stable/Beta/Dev/Canary) and all milestones.
+   * Stable channels are shown first, then milestones sorted newest-first.
    */
   async getAvailableVersions(): Promise<ChromeVersionInfo[]> {
-    const data = await this.fetchJSON(CHROME_VERSIONS_API);
     const installedVersions = this.getInstalledVersions();
     const installedSet = new Set(installedVersions.map(v => v.version));
     const platformKey = this.getPlatformKey();
-
     const results: ChromeVersionInfo[] = [];
     const seenVersions = new Set<string>();
 
-    // Process in priority order: Stable > Beta > Dev > Canary
-    const channelOrder = ['Stable', 'Beta', 'Dev', 'Canary'];
+    // 1. Fetch Stable channels first (Stable, Beta, Dev, Canary)
+    try {
+      const stableData = await this.fetchJSON(CHROME_STABLE_API);
+      const channelOrder = ['Stable', 'Beta', 'Dev', 'Canary'];
+      for (const channelName of channelOrder) {
+        const channelData = (stableData.channels as Record<string, any>)[channelName];
+        if (!channelData) continue;
+        const chromeDownloads = channelData.downloads?.chrome;
+        if (!chromeDownloads) continue;
+        const hasOurPlatform = chromeDownloads.some((d: any) => d.platform === platformKey);
+        if (!hasOurPlatform) continue;
 
-    for (const channelName of channelOrder) {
-      const channelData = (data.channels as Record<string, any>)[channelName];
-      if (!channelData) continue;
+        seenVersions.add(channelData.version);
+        results.push({
+          version: channelData.version,
+          channel: channelName,
+          revision: channelData.revision,
+          installed: installedSet.has(channelData.version),
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch stable channels:', err);
+    }
 
-      // Skip if this exact version was already added from a higher-priority channel
-      if (seenVersions.has(channelData.version)) continue;
+    // 2. Fetch milestones
+    try {
+      const data = await this.fetchJSON(CHROME_VERSIONS_API);
+      const milestones = data.milestones as Record<string, any>;
+      const milestoneKeys = Object.keys(milestones)
+        .map(k => parseInt(k, 10))
+        .filter(k => !isNaN(k))
+        .sort((a, b) => b - a); // Newest first
 
-      const chromeDownloads = channelData.downloads?.chrome;
-      if (!chromeDownloads) continue;
+      for (const milestoneNum of milestoneKeys) {
+        const milestoneData = milestones[String(milestoneNum)];
+        if (!milestoneData) continue;
+        // Skip if already added from stable channels
+        if (seenVersions.has(milestoneData.version)) continue;
 
-      const hasOurPlatform = chromeDownloads.some((d: any) => d.platform === platformKey);
-      if (!hasOurPlatform) continue;
+        const chromeDownloads = milestoneData.downloads?.chrome;
+        if (!chromeDownloads) continue;
+        const hasOurPlatform = chromeDownloads.some((d: any) => d.platform === platformKey);
+        if (!hasOurPlatform) continue;
 
-      seenVersions.add(channelData.version);
-      results.push({
-        version: channelData.version,
-        channel: channelName,
-        revision: channelData.revision,
-        installed: installedSet.has(channelData.version),
-      });
+        seenVersions.add(milestoneData.version);
+        results.push({
+          version: milestoneData.version,
+          channel: `Milestone ${milestoneData.milestone}`,
+          revision: milestoneData.revision,
+          installed: installedSet.has(milestoneData.version),
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch milestones:', err);
     }
 
     return results;
@@ -134,19 +176,125 @@ export class BrowserVersionManager {
     const metadata = this.loadMetadata();
     return metadata.versions
       .filter(v => {
-        const binaryPath = this.getChromeBinaryPath(v.version);
+        // For custom versions, use the stored chromePath
+        const binaryPath = v.chromePath || this.getChromeBinaryPathForDownloaded(v.version);
         return fs.existsSync(binaryPath);
       })
       .map(v => ({
         version: v.version,
         channel: v.channel,
         installedAt: v.installedAt,
-        chromePath: this.getChromeBinaryPath(v.version),
+        chromePath: v.chromePath || this.getChromeBinaryPathForDownloaded(v.version),
       }));
   }
 
   /**
-   * Download and install a specific Chrome version
+   * Get Chrome binary path for a downloaded (non-custom) version.
+   * Used internally to avoid infinite recursion with getChromeBinaryPath.
+   */
+  private getChromeBinaryPathForDownloaded(version: string): string {
+    const platform = os.platform();
+    const platformKey = this.getPlatformKey();
+    const versionDir = path.join(this.browsersDir, version);
+
+    if (platform === 'win32') {
+      return path.join(versionDir, `chrome-${platformKey}`, 'chrome.exe');
+    } else if (platform === 'darwin') {
+      return path.join(
+        versionDir,
+        `chrome-${platformKey}`,
+        'Google Chrome for Testing.app',
+        'Contents',
+        'MacOS',
+        'Google Chrome for Testing'
+      );
+    } else {
+      return path.join(versionDir, 'chrome-linux64', 'chrome');
+    }
+  }
+
+  /**
+   * Add a custom Chrome version by specifying a folder path.
+   * The folder must contain a Chrome binary.
+   */
+  addCustomVersion(name: string, chromePath: string): void {
+    if (!fs.existsSync(chromePath)) {
+      throw new Error(`Chrome binary not found at: ${chromePath}`);
+    }
+
+    const metadata = this.loadMetadata();
+    // Remove existing entry with same name
+    metadata.versions = metadata.versions.filter(v => v.version !== name);
+    metadata.versions.push({
+      version: name,
+      channel: 'Custom',
+      installedAt: new Date().toISOString(),
+      chromePath,
+    });
+    this.saveMetadata(metadata);
+  }
+
+  /**
+   * Find a Chrome binary inside a directory.
+   * Searches for common Chrome binary names.
+   */
+  findChromeBinary(dir: string): string | null {
+    const platform = os.platform();
+    const candidates: string[] = [];
+
+    if (platform === 'win32') {
+      candidates.push(
+        path.join(dir, 'chrome.exe'),
+        path.join(dir, 'Chrome', 'chrome.exe'),
+        path.join(dir, 'Application', 'chrome.exe'),
+        path.join(dir, 'Chrome-bin', 'chrome.exe'),
+        path.join(dir, 'App', 'Chrome-bin', 'chrome.exe'),
+      );
+    } else if (platform === 'darwin') {
+      candidates.push(
+        path.join(dir, 'Google Chrome.app', 'Contents', 'MacOS', 'Google Chrome'),
+        path.join(dir, 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+        path.join(dir, 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'),
+        path.join(dir, 'chrome'),
+      );
+    } else {
+      candidates.push(
+        path.join(dir, 'chrome'),
+        path.join(dir, 'chrome-linux64', 'chrome'),
+        path.join(dir, 'chromium'),
+        path.join(dir, 'google-chrome'),
+      );
+    }
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get the default Chrome version for new profiles.
+   * Returns 'system' if no default is set.
+   */
+  getDefaultVersion(): string {
+    const metadata = this.loadMetadata();
+    return metadata.defaultVersion || 'system';
+  }
+
+  /**
+   * Set the default Chrome version for new profiles.
+   */
+  setDefaultVersion(version: string): void {
+    const metadata = this.loadMetadata();
+    metadata.defaultVersion = version;
+    this.saveMetadata(metadata);
+  }
+
+  /**
+   * Download and install a specific Chrome version.
+   * Searches both stable channels and milestones APIs for the download URL.
    */
   async downloadVersion(
     version: string,
@@ -155,25 +303,50 @@ export class BrowserVersionManager {
   ): Promise<void> {
     const platformKey = this.getPlatformKey();
 
-    // 1. Get download URL
-    const data = await this.fetchJSON(CHROME_VERSIONS_API);
-    const channelData = (data.channels as Record<string, any>)[channel];
-    if (!channelData) throw new Error(`Channel "${channel}" does not exist`);
+    // 1. Get download URL - search both APIs
+    let downloadUrl: string | null = null;
 
-    const downloads = channelData.downloads?.chrome as { platform: string; url: string }[];
-    const download = downloads?.find(d => d.platform === platformKey);
-    if (!download) throw new Error(`No download available for platform ${platformKey}`);
+    // Try stable channels first (for Stable/Beta/Dev/Canary)
+    if (['Stable', 'Beta', 'Dev', 'Canary'].includes(channel)) {
+      try {
+        const stableData = await this.fetchJSON(CHROME_STABLE_API);
+        const channelData = (stableData.channels as Record<string, any>)[channel];
+        if (channelData?.version === version) {
+          const downloads = channelData.downloads?.chrome as { platform: string; url: string }[];
+          const download = downloads?.find(d => d.platform === platformKey);
+          if (download) downloadUrl = download.url;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch stable API for download:', err);
+      }
+    }
+
+    // Fall back to milestones API
+    if (!downloadUrl) {
+      const data = await this.fetchJSON(CHROME_VERSIONS_API);
+      const milestones = data.milestones as Record<string, any>;
+      for (const key of Object.keys(milestones)) {
+        const m = milestones[key];
+        if (m.version === version) {
+          const chromeDownloads = m.downloads?.chrome as { platform: string; url: string }[];
+          const download = chromeDownloads?.find(d => d.platform === platformKey);
+          if (download) downloadUrl = download.url;
+          break;
+        }
+      }
+    }
+    if (!downloadUrl) throw new Error(`No download available for version ${version} on platform ${platformKey}`);
 
     // 2. Download ZIP with progress
     const versionDir = path.join(this.browsersDir, version);
     const zipPath = path.join(this.browsersDir, `chrome-${version}.zip`);
 
     if (webContents) {
-      webContents.send('browser:downloadProgress', version, 0, 'Đang tải...');
+      webContents.send('browser:downloadProgress', version, 0, 'Downloading...');
     }
 
     try {
-      await this.downloadFile(download.url, zipPath, (percent, downloaded, total) => {
+      await this.downloadFile(downloadUrl, zipPath, (percent, downloaded, total) => {
         if (webContents && !webContents.isDestroyed()) {
           const downloadedMB = (downloaded / 1024 / 1024).toFixed(1);
           const totalMB = (total / 1024 / 1024).toFixed(1);
@@ -181,14 +354,14 @@ export class BrowserVersionManager {
             'browser:downloadProgress',
             version,
             percent,
-            `Đang tải: ${downloadedMB}MB / ${totalMB}MB`
+            `Downloading: ${downloadedMB}MB / ${totalMB}MB`
           );
         }
       });
 
       // 3. Extract ZIP
       if (webContents && !webContents.isDestroyed()) {
-        webContents.send('browser:downloadProgress', version, 100, 'Đang giải nén...');
+        webContents.send('browser:downloadProgress', version, 100, 'Extracting...');
       }
 
       if (fs.existsSync(versionDir)) {

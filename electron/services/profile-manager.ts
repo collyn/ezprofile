@@ -14,6 +14,7 @@ export interface Profile {
   proxy_port: number | null;
   proxy_user: string | null;
   proxy_pass: string | null;
+  proxy_enabled: number;
   notes: string | null;
   browser_version: string | null;
   user_data_dir: string;
@@ -36,6 +37,7 @@ export interface CreateProfileInput {
   proxy_port?: number;
   proxy_user?: string;
   proxy_pass?: string;
+  proxy_enabled?: number;
   notes?: string;
   startup_url?: string;
   startup_type?: 'new_tab' | 'continue' | 'specific_pages';
@@ -84,8 +86,8 @@ export class ProfileManager {
     }
 
     this.db.prepare(`
-      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, notes, user_data_dir, startup_url, startup_type, startup_urls)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, proxy_enabled, notes, user_data_dir, startup_url, startup_type, startup_urls)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.name,
@@ -95,6 +97,7 @@ export class ProfileManager {
       input.proxy_port || null,
       input.proxy_user || null,
       input.proxy_pass || null,
+      input.proxy_enabled ?? 0,
       input.notes || null,
       userDataDir,
       input.startup_url || null,
@@ -140,6 +143,7 @@ export class ProfileManager {
       proxy_port: 'proxy_port',
       proxy_user: 'proxy_user',
       proxy_pass: 'proxy_pass',
+      proxy_enabled: 'proxy_enabled',
       notes: 'notes',
       startup_url: 'startup_url',
       startup_type: 'startup_type',
@@ -224,8 +228,8 @@ export class ProfileManager {
     }
 
     this.db.prepare(`
-      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, notes, browser_version, user_data_dir, startup_url, startup_type, startup_urls)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, proxy_enabled, notes, browser_version, user_data_dir, startup_url, startup_type, startup_urls)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       newId,
       `${source.name} (Copy)`,
@@ -235,6 +239,7 @@ export class ProfileManager {
       source.proxy_port,
       source.proxy_user,
       source.proxy_pass,
+      source.proxy_enabled ?? 0,
       source.notes,
       source.browser_version,
       newUserDataDir,
@@ -284,6 +289,42 @@ export class ProfileManager {
 
   setSetting(key: string, value: string): void {
     this.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  }
+
+  // Proxy management
+  getProxies(): any[] {
+    return this.db.prepare('SELECT * FROM proxies ORDER BY created_at DESC').all();
+  }
+
+  createProxy(input: { name: string; type: string; host: string; port: number; username?: string; password?: string }): any {
+    const id = uuidv4();
+    this.db.prepare(
+      `INSERT INTO proxies (id, name, type, host, port, username, password) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, input.name, input.type, input.host, input.port, input.username || null, input.password || null);
+    return this.db.prepare('SELECT * FROM proxies WHERE id = ?').get(id);
+  }
+
+  updateProxy(id: string, input: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string }): any {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    for (const [key, value] of Object.entries(input)) {
+      if (value !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+
+    if (fields.length > 0) {
+      fields.push("updated_at = datetime('now')");
+      values.push(id);
+      this.db.prepare(`UPDATE proxies SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+    }
+    return this.db.prepare('SELECT * FROM proxies WHERE id = ?').get(id);
+  }
+
+  deleteProxy(id: string): void {
+    this.db.prepare('DELETE FROM proxies WHERE id = ?').run(id);
   }
 
   close(): void {

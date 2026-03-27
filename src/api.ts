@@ -1,8 +1,9 @@
-import { ProfileData, CreateProfileInput, ProxyCheckResult } from './types';
+import { ProfileData, CreateProfileInput, ProxyCheckResult, ProxyData } from './types';
 
 // Mock electronAPI for browser-only development (when not running in Electron)
 const mockProfiles: ProfileData[] = [];
 const mockGroups: { id: string; name: string; color: string }[] = [];
+const mockProxies: ProxyData[] = [];
 let mockIdCounter = 0;
 
 export function isElectron(): boolean {
@@ -21,6 +22,7 @@ function createMockProfile(input: CreateProfileInput): ProfileData {
     proxy_port: input.proxy_port || null,
     proxy_user: input.proxy_user || null,
     proxy_pass: input.proxy_pass || null,
+    proxy_enabled: input.proxy_enabled ?? 0,
     notes: input.notes || null,
     browser_version: 'latest',
     user_data_dir: `/mock/profiles/${id}`,
@@ -110,6 +112,25 @@ export const mockElectronAPI: typeof window.electronAPI = {
     if (idx >= 0) mockProfiles[idx].status = 'ready';
   },
   checkProxy: async () => ({ success: true, ip: '127.0.0.1', latency: 50 }),
+  getProxies: async () => [...mockProxies],
+  createProxy: async (data) => {
+    const proxy: ProxyData = {
+      id: `proxy-${Date.now()}`, ...data,
+      username: data.username || null, password: data.password || null,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    };
+    mockProxies.unshift(proxy);
+    return proxy;
+  },
+  updateProxy: async (id, data) => {
+    const idx = mockProxies.findIndex(p => p.id === id);
+    if (idx >= 0) mockProxies[idx] = { ...mockProxies[idx], ...data, updated_at: new Date().toISOString() } as ProxyData;
+    return mockProxies[idx];
+  },
+  deleteProxy: async (id) => {
+    const idx = mockProxies.findIndex(p => p.id === id);
+    if (idx >= 0) mockProxies.splice(idx, 1);
+  },
   importCookies: async () => ({ success: true }),
   exportCookies: async () => ({ success: true }),
   backupProfile: async () => ({ success: true }),
@@ -132,6 +153,9 @@ export const mockElectronAPI: typeof window.electronAPI = {
   getInstalledBrowserVersions: async () => [],
   downloadBrowserVersion: async () => ({ success: true }),
   deleteBrowserVersion: async () => ({ success: true }),
+  addCustomBrowserVersion: async () => ({ success: true, version: 'Custom - Mock', chromePath: '/mock/chrome' }),
+  getDefaultBrowserVersion: async () => 'system',
+  setDefaultBrowserVersion: async () => ({ success: true }),
   minimizeWindow: async () => {},
   maximizeWindow: async () => {},
   closeWindow: async () => {},

@@ -63,6 +63,14 @@ const electronAPI = {
   checkProxy: (type: string, host: string, port: number, user?: string, pass?: string): Promise<ProxyCheckResult> =>
     ipcRenderer.invoke('proxy:check', type, host, port, user, pass),
 
+  // Proxy list management
+  getProxies: (): Promise<any[]> => ipcRenderer.invoke('proxy:getAll'),
+  createProxy: (data: { name: string; type: string; host: string; port: number; username?: string; password?: string }): Promise<any> =>
+    ipcRenderer.invoke('proxy:create', data),
+  updateProxy: (id: string, data: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string }): Promise<any> =>
+    ipcRenderer.invoke('proxy:update', id, data),
+  deleteProxy: (id: string): Promise<void> => ipcRenderer.invoke('proxy:delete', id),
+
   // Cookie and Backup operations
   importCookies: (profileId: string): Promise<{ success: boolean; error?: string; canceled?: boolean }> => ipcRenderer.invoke('cookie:import', profileId),
   exportCookies: (profileId: string): Promise<{ success: boolean; error?: string; canceled?: boolean }> => ipcRenderer.invoke('cookie:export', profileId),
@@ -87,6 +95,9 @@ const electronAPI = {
   getInstalledBrowserVersions: () => ipcRenderer.invoke('browser:getInstalled'),
   downloadBrowserVersion: (version: string, channel: string) => ipcRenderer.invoke('browser:download', version, channel),
   deleteBrowserVersion: (version: string) => ipcRenderer.invoke('browser:delete', version),
+  addCustomBrowserVersion: () => ipcRenderer.invoke('browser:addCustom'),
+  getDefaultBrowserVersion: () => ipcRenderer.invoke('browser:getDefault'),
+  setDefaultBrowserVersion: (version: string) => ipcRenderer.invoke('browser:setDefault', version),
 
   // Window controls
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),

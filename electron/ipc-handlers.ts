@@ -156,11 +156,11 @@ export function registerIpcHandlers(
 
     try {
       const child = chromeLauncher.launch(id, profile.user_data_dir, {
-        proxyType: profile.proxy_type || undefined,
-        proxyHost: profile.proxy_host || undefined,
-        proxyPort: profile.proxy_port || undefined,
-        proxyUser: profile.proxy_user || undefined,
-        proxyPass: profile.proxy_pass || undefined,
+        proxyType: profile.proxy_enabled ? (profile.proxy_type || undefined) : undefined,
+        proxyHost: profile.proxy_enabled ? (profile.proxy_host || undefined) : undefined,
+        proxyPort: profile.proxy_enabled ? (profile.proxy_port || undefined) : undefined,
+        proxyUser: profile.proxy_enabled ? (profile.proxy_user || undefined) : undefined,
+        proxyPass: profile.proxy_enabled ? (profile.proxy_pass || undefined) : undefined,
         startupUrl: profile.startup_url || undefined,
         startupType: profile.startup_type || 'continue',
         startupUrls: profile.startup_urls || undefined,
@@ -211,6 +211,23 @@ export function registerIpcHandlers(
   // Proxy operations
   ipcMain.handle('proxy:check', async (_event, type, host, port, user, pass) => {
     return proxyChecker.check(type, host, port, user, pass);
+  });
+
+  // Proxy list management
+  ipcMain.handle('proxy:getAll', () => {
+    return profileManager.getProxies();
+  });
+
+  ipcMain.handle('proxy:create', (_event, data) => {
+    return profileManager.createProxy(data);
+  });
+
+  ipcMain.handle('proxy:update', (_event, id, data) => {
+    return profileManager.updateProxy(id, data);
+  });
+
+  ipcMain.handle('proxy:delete', (_event, id) => {
+    profileManager.deleteProxy(id);
   });
 
   // Cookie operations
@@ -425,6 +442,40 @@ export function registerIpcHandlers(
     } catch (error: any) {
       return { success: false, error: error.message };
     }
+  });
+
+  ipcMain.handle('browser:addCustom', async () => {
+    if (!mainWindow) return { success: false, error: 'No main window' };
+    try {
+      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select Chrome Folder',
+        properties: ['openDirectory'],
+      });
+      if (canceled || filePaths.length === 0) return { success: false, canceled: true };
+
+      const dir = filePaths[0];
+      const chromeBinary = browserVersionManager.findChromeBinary(dir);
+      if (!chromeBinary) {
+        return { success: false, error: 'No Chrome binary found in selected folder' };
+      }
+
+      // Use folder name as version name
+      const folderName = require('path').basename(dir);
+      const versionName = `Custom - ${folderName}`;
+      browserVersionManager.addCustomVersion(versionName, chromeBinary);
+      return { success: true, version: versionName, chromePath: chromeBinary };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('browser:getDefault', () => {
+    return browserVersionManager.getDefaultVersion();
+  });
+
+  ipcMain.handle('browser:setDefault', (_event, version: string) => {
+    browserVersionManager.setDefaultVersion(version);
+    return { success: true };
   });
 
   // Auto-Updater handlers

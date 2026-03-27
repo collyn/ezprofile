@@ -18,9 +18,14 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<{ percent: number; message: string }>({ percent: 0, message: '' });
   const [error, setError] = useState<string | null>(null);
+  const [defaultVersion, setDefaultVersion] = useState<string>('system');
 
   const loadInstalled = useCallback(() => {
     api.getInstalledBrowserVersions().then(setInstalled);
+  }, []);
+
+  const loadDefault = useCallback(() => {
+    api.getDefaultBrowserVersion().then(setDefaultVersion);
   }, []);
 
   const loadAvailable = useCallback(async () => {
@@ -38,16 +43,16 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
 
   useEffect(() => {
     loadInstalled();
+    loadDefault();
     api.onBrowserDownloadProgress((version: string, percent: number, message: string) => {
       setDownloadProgress({ percent, message });
-      if (message === t('browserVersion.completed') || message === 'Hoàn tất!') {
+      if (message === 'Completed!' || message === t('browserVersion.completed') || message === 'Hoàn tất!') {
         setDownloading(null);
         loadInstalled();
-        // Refresh available to update installed status
         loadAvailable();
       }
     });
-  }, [loadInstalled, loadAvailable]);
+  }, [loadInstalled, loadDefault, loadAvailable]);
 
   useEffect(() => {
     if (tab === 'available' && available.length === 0) {
@@ -68,8 +73,12 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
   const handleDelete = async (version: string) => {
     const result = await api.deleteBrowserVersion(version);
     if (result.success) {
+      // If deleting the default version, reset to system
+      if (defaultVersion === version) {
+        await api.setDefaultBrowserVersion('system');
+        setDefaultVersion('system');
+      }
       loadInstalled();
-      // Also refresh available to update installed status
       if (available.length > 0) {
         const updatedAvailable = available.map(v =>
           v.version === version ? { ...v, installed: false } : v
@@ -81,11 +90,30 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
     }
   };
 
-  const channelColors: Record<string, string> = {
-    Stable: '#34a853',
-    Beta: '#fbbc04',
-    Dev: '#ea4335',
-    Canary: '#ff6d00',
+  const handleAddCustom = async () => {
+    setError(null);
+    const result = await api.addCustomBrowserVersion();
+    if (result.canceled) return;
+    if (result.success) {
+      loadInstalled();
+    } else {
+      setError(result.error || t('browserVersion.invalidChrome'));
+    }
+  };
+
+  const handleSetDefault = async (version: string) => {
+    await api.setDefaultBrowserVersion(version);
+    setDefaultVersion(version);
+  };
+
+  const getChannelStyle = (channel: string): { background: string; color: string } => {
+    if (channel === 'Custom') return { background: '#7c3aed', color: '#fff' };
+    if (channel === 'Stable') return { background: '#34a853', color: '#fff' };
+    if (channel === 'Beta') return { background: '#fbbc04', color: '#333' };
+    if (channel === 'Dev') return { background: '#ea4335', color: '#fff' };
+    if (channel === 'Canary') return { background: '#ff6d00', color: '#fff' };
+    // Milestone
+    return { background: '#4285f4', color: '#fff' };
   };
 
   return (
@@ -105,14 +133,10 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
           <button
             onClick={() => setTab('installed')}
             style={{
-              padding: '10px 20px',
-              background: 'none',
-              border: 'none',
+              padding: '10px 20px', background: 'none', border: 'none',
               color: tab === 'installed' ? 'var(--primary)' : 'var(--text-secondary)',
               borderBottom: tab === 'installed' ? '2px solid var(--primary)' : '2px solid transparent',
-              cursor: 'pointer',
-              fontWeight: tab === 'installed' ? 600 : 400,
-              fontSize: 13,
+              cursor: 'pointer', fontWeight: tab === 'installed' ? 600 : 400, fontSize: 13,
             }}
           >
             {t('browserVersion.tabInstalled', { count: installed.length })}
@@ -120,14 +144,10 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
           <button
             onClick={() => setTab('available')}
             style={{
-              padding: '10px 20px',
-              background: 'none',
-              border: 'none',
+              padding: '10px 20px', background: 'none', border: 'none',
               color: tab === 'available' ? 'var(--primary)' : 'var(--text-secondary)',
               borderBottom: tab === 'available' ? '2px solid var(--primary)' : '2px solid transparent',
-              cursor: 'pointer',
-              fontWeight: tab === 'available' ? 600 : 400,
-              fontSize: 13,
+              cursor: 'pointer', fontWeight: tab === 'available' ? 600 : 400, fontSize: 13,
             }}
           >
             {t('browserVersion.tabDownload')}
@@ -144,46 +164,107 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
         <div style={{ overflowY: 'auto', maxHeight: 'calc(80vh - 160px)' }}>
           {tab === 'installed' && (
             <>
-              {installed.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
-                  <p style={{ fontSize: 14 }}>{t('browserVersion.emptyInstalled1')}</p>
-                  <p style={{ fontSize: 12, marginTop: 4 }}>{t('browserVersion.emptyInstalled2')}</p>
+              {/* Add Custom Version button */}
+              <button
+                onClick={handleAddCustom}
+                style={{
+                  width: '100%', padding: '10px 16px', marginBottom: 12,
+                  background: 'none', border: '1px dashed var(--border-color)', borderRadius: 8,
+                  color: 'var(--primary)', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.borderColor = 'var(--primary)';
+                  (e.target as HTMLElement).style.background = 'rgba(var(--primary-rgb), 0.05)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.borderColor = 'var(--border-color)';
+                  (e.target as HTMLElement).style.background = 'none';
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                {t('browserVersion.addCustom')}
+              </button>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* System Chrome entry */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', background: 'var(--bg-tertiary)', borderRadius: 8,
+                  border: defaultVersion === 'system' ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                }}>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{t('browserVersion.systemChrome')}</span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-secondary)' }}>
+                      {t('browserVersion.systemChromeDesc')}
+                    </span>
+                  </div>
+                  {defaultVersion === 'system' ? (
+                    <span style={{ fontSize: 11, color: '#34a853', fontWeight: 600 }}>{t('browserVersion.isDefault')}</span>
+                  ) : (
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => handleSetDefault('system')}
+                      style={{ fontSize: 10, padding: '3px 8px' }}
+                    >
+                      {t('browserVersion.setDefault')}
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {/* System Chrome entry */}
-                  <div style={{
+
+                {installed.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-secondary)' }}>
+                    <p style={{ fontSize: 13 }}>{t('browserVersion.emptyInstalled1')}</p>
+                    <p style={{ fontSize: 11, marginTop: 4 }}>{t('browserVersion.emptyInstalled2')}</p>
+                  </div>
+                )}
+
+                {installed.map((v) => (
+                  <div key={v.version} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 16px', background: 'var(--bg-tertiary)', borderRadius: 8,
-                    border: '1px solid var(--border-color)',
+                    border: defaultVersion === v.version ? '1px solid var(--primary)' : '1px solid var(--border-color)',
                   }}>
-                    <div>
-                      <span style={{ fontWeight: 600, fontSize: 14 }}>{t('browserVersion.systemChrome')}</span>
-                      <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-secondary)' }}>
-                        {t('browserVersion.systemChromeDesc')}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: 11, color: '#34a853', fontWeight: 500 }}>{t('browserVersion.default')}</span>
-                  </div>
-
-                  {installed.map((v) => (
-                    <div key={v.version} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '12px 16px', background: 'var(--bg-tertiary)', borderRadius: 8,
-                      border: '1px solid var(--border-color)',
-                    }}>
-                      <div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: 600, fontSize: 14 }}>{v.version}</span>
                         <span style={{
-                          marginLeft: 8, fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                          background: channelColors[v.channel] || '#666', color: '#fff',
+                          fontSize: 10, padding: '2px 6px', borderRadius: 4,
+                          ...getChannelStyle(v.channel),
                         }}>
-                          {v.channel}
+                          {v.channel === 'Custom' ? t('browserVersion.customLabel') : v.channel}
                         </span>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                          {t('browserVersion.installedAt', { date: new Date(v.installedAt).toLocaleString() })}
-                        </div>
+                        {defaultVersion === v.version && (
+                          <span style={{ fontSize: 10, color: '#34a853', fontWeight: 600 }}>
+                            {t('browserVersion.isDefault')}
+                          </span>
+                        )}
                       </div>
+                      {v.channel === 'Custom' && v.chromePath && (
+                        <div style={{
+                          fontSize: 10, color: 'var(--text-secondary)', marginTop: 3,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '350px',
+                        }} title={v.chromePath}>
+                          {t('browserVersion.customPath', { path: v.chromePath })}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                        {t('browserVersion.installedAt', { date: new Date(v.installedAt).toLocaleString() })}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      {defaultVersion !== v.version && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => handleSetDefault(v.version)}
+                          style={{ fontSize: 10, padding: '3px 8px' }}
+                        >
+                          {t('browserVersion.setDefault')}
+                        </button>
+                      )}
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleDelete(v.version)}
@@ -192,9 +273,9 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
                         {t('browserVersion.delete')}
                       </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
             </>
           )}
 
@@ -216,7 +297,7 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
                         <span style={{ fontWeight: 600, fontSize: 14 }}>{v.version}</span>
                         <span style={{
                           marginLeft: 8, fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                          background: channelColors[v.channel] || '#666', color: '#fff',
+                          ...getChannelStyle(v.channel),
                         }}>
                           {v.channel}
                         </span>
@@ -235,8 +316,7 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
                             }}>
                               <div style={{
                                 width: `${downloadProgress.percent}%`, height: '100%',
-                                background: 'var(--primary)', borderRadius: 3,
-                                transition: 'width 0.3s ease',
+                                background: 'var(--primary)', borderRadius: 3, transition: 'width 0.3s ease',
                               }} />
                             </div>
                             <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>

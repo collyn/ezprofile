@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CreateProfileInput, GroupData, InstalledBrowserVersion } from '../types';
+import { CreateProfileInput, GroupData, InstalledBrowserVersion, ProxyData } from '../types';
 import { getAPI } from '../api';
 
 const api = getAPI();
@@ -20,15 +20,20 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
   const [proxyPort, setProxyPort] = useState('');
   const [proxyUser, setProxyUser] = useState('');
   const [proxyPass, setProxyPass] = useState('');
+  const [proxyEnabled, setProxyEnabled] = useState(false);
   const [notes, setNotes] = useState('');
   const [startupType, setStartupType] = useState<'new_tab' | 'continue' | 'specific_pages'>('continue');
   const [startupUrls, setStartupUrls] = useState('');
   const [browserVersion, setBrowserVersion] = useState('system');
   const [installedVersions, setInstalledVersions] = useState<InstalledBrowserVersion[]>([]);
+  const [savedProxies, setSavedProxies] = useState<ProxyData[]>([]);
+  const [proxySource, setProxySource] = useState<'custom' | 'list'>('custom');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     api.getInstalledBrowserVersions().then(setInstalledVersions);
+    api.getDefaultBrowserVersion().then((v) => setBrowserVersion(v));
+    api.getProxies().then(setSavedProxies);
   }, []);
 
   // Batch mode
@@ -52,6 +57,7 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
             proxy_port: proxyPort ? parseInt(proxyPort, 10) : undefined,
             proxy_user: proxyUser || undefined,
             proxy_pass: proxyPass || undefined,
+            proxy_enabled: proxyEnabled ? 1 : 0,
             notes: notes || undefined,
             startup_type: startupType,
             startup_urls: startupType === 'specific_pages' ? startupUrls : undefined,
@@ -67,6 +73,7 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
           proxy_port: proxyPort ? parseInt(proxyPort, 10) : undefined,
           proxy_user: proxyUser || undefined,
           proxy_pass: proxyPass || undefined,
+          proxy_enabled: proxyEnabled ? 1 : 0,
           notes: notes || undefined,
           startup_type: startupType,
           startup_urls: startupType === 'specific_pages' ? startupUrls : undefined,
@@ -167,12 +174,76 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
             </div>
 
             {/* Proxy section */}
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
                 {t('profileForm.proxyOptional')}
               </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
+                <div
+                  onClick={() => setProxyEnabled(!proxyEnabled)}
+                  style={{
+                    width: 32, height: 18, borderRadius: 9, position: 'relative', cursor: 'pointer',
+                    background: proxyEnabled ? '#34a853' : 'var(--border-color)', transition: 'background 0.2s',
+                  }}
+                >
+                  <div style={{
+                    width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute',
+                    top: 2, left: proxyEnabled ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  }} />
+                </div>
+                <span style={{ color: proxyEnabled ? '#34a853' : 'var(--text-secondary)' }}>
+                  {proxyEnabled ? 'ON' : 'OFF'}
+                </span>
+              </label>
             </div>
 
+            {proxyEnabled && (
+              <>
+            {/* Proxy Source Toggle */}
+            {savedProxies.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${proxySource === 'list' ? 'btn-primary' : ''}`}
+                  onClick={() => setProxySource('list')}
+                >
+                  {t('profileForm.fromList')}
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${proxySource === 'custom' ? 'btn-primary' : ''}`}
+                  onClick={() => setProxySource('custom')}
+                >
+                  {t('profileForm.customProxy')}
+                </button>
+              </div>
+            )}
+
+            {proxySource === 'list' && savedProxies.length > 0 ? (
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <select
+                  onChange={(e) => {
+                    const proxy = savedProxies.find(p => p.id === e.target.value);
+                    if (proxy) {
+                      setProxyType(proxy.type);
+                      setProxyHost(proxy.host);
+                      setProxyPort(proxy.port.toString());
+                      setProxyUser(proxy.username || '');
+                      setProxyPass(proxy.password || '');
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>{t('profileForm.selectProxy')}</option>
+                  {savedProxies.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.type.toUpperCase()} {p.host}:{p.port})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <>
             <div className="form-row">
               <div className="form-group" style={{ maxWidth: 120 }}>
                 <label>{t('profileForm.type')}</label>
@@ -224,6 +295,18 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
                   />
                 </div>
               </div>
+            )}
+              </>
+            )}
+
+            {/* Show current proxy info when selected from list */}
+            {proxySource === 'list' && proxyHost && (
+              <div style={{ padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+                {proxyType?.toUpperCase()} {proxyHost}:{proxyPort}
+                {proxyUser && ` • ${proxyUser}`}
+              </div>
+            )}
+              </>
             )}
 
             {/* On Startup section */}

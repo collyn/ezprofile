@@ -234,8 +234,10 @@ export class ChromeLauncher {
     ];
 
     // Chrome for Testing binaries need --no-sandbox on Linux
+    // and --disable-infobars to suppress the "Chrome for Testing" warning banner
     if (options.browserVersion && options.browserVersion !== 'system' && options.browserVersion !== 'latest') {
       args.push('--no-sandbox');
+      args.push('--disable-infobars');
     }
 
     // Add proxy if configured
