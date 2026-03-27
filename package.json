@@ -1,6 +1,6 @@
 {
   "name": "ezprofile",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Multi Chrome Profile Manager",
   "homepage": "https://github.com/collyn/ezprofile",
   "main": "dist-electron/main.js",
