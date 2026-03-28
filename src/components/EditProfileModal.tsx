@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProfileData, CreateProfileInput, GroupData, InstalledBrowserVersion, ProxyData } from '../types';
 import { getAPI } from '../api';
+import FingerprintSettings, { FingerprintFlags } from './FingerprintSettings';
 
 const api = getAPI();
 
@@ -30,6 +31,13 @@ export default function EditProfileModal({ profile, groups, onClose, onSave }: E
   const [savedProxies, setSavedProxies] = useState<ProxyData[]>([]);
   const [proxySource, setProxySource] = useState<'custom' | 'list'>('custom');
   const [submitting, setSubmitting] = useState(false);
+  const [fingerprintFlags, setFingerprintFlags] = useState<FingerprintFlags>(() => {
+    try {
+      return profile.fingerprint_flags ? JSON.parse(profile.fingerprint_flags) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     api.getInstalledBrowserVersions().then(setInstalledVersions);
@@ -55,6 +63,16 @@ export default function EditProfileModal({ profile, groups, onClose, onSave }: E
         startup_type: startupType,
         startup_urls: startupType === 'specific_pages' ? startupUrls : undefined,
         browser_version: browserVersion !== 'system' ? browserVersion : undefined,
+        fingerprint_flags: (() => {
+          const isCB = installedVersions.some(
+            v => v.version === browserVersion && v.channel === 'CloakBrowser'
+          );
+          if (!isCB) return undefined;
+          const nonEmpty = Object.fromEntries(
+            Object.entries(fingerprintFlags).filter(([, v]) => v && v.trim())
+          );
+          return Object.keys(nonEmpty).length > 0 ? JSON.stringify(nonEmpty) : undefined;
+        })(),
       });
       onClose();
     } catch (err) {
@@ -115,6 +133,13 @@ export default function EditProfileModal({ profile, groups, onClose, onSave }: E
                 ))}
               </select>
             </div>
+
+            {/* CloakBrowser Fingerprint Settings */}
+            {installedVersions.some(
+              v => v.version === browserVersion && v.channel === 'CloakBrowser'
+            ) && (
+              <FingerprintSettings flags={fingerprintFlags} onChange={setFingerprintFlags} />
+            )}
 
             <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

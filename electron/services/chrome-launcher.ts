@@ -2,6 +2,7 @@ import { ChildProcess, spawn, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as crypto from 'crypto';
 import { BrowserVersionManager } from './browser-version-manager';
 
 export class ChromeLauncher {
@@ -184,6 +185,7 @@ export class ChromeLauncher {
       startupType?: string;
       startupUrls?: string;
       browserVersion?: string;
+      fingerprintFlags?: Record<string, string>;
     } = {}
   ): ChildProcess {
     // Check if already running
@@ -213,31 +215,44 @@ export class ChromeLauncher {
       options.startupUrls
     );
 
+    // Detect CloakBrowser early to use different arg sets
+    const isCloakBrowser = this.browserVersionManager?.isCloakBrowserVersion(options.browserVersion || '');
+
     const chromePath = this.resolveChromePath(options.browserVersion);
     console.log(`[ChromeLauncher] Launching profile ${profileId} with Chrome: ${chromePath}`);
     console.log(`[ChromeLauncher] Browser version setting: ${options.browserVersion || 'system'}`);
 
-    // Build Chrome arguments
+    // Build browser arguments
+    // CloakBrowser uses a minimal set - its patched Chromium is incompatible with
+    // some standard Chrome flags when profiles were created by new Chrome versions.
     const args: string[] = [
       `--user-data-dir=${userDataDir}`,
       '--no-first-run',
       '--no-default-browser-check',
-      '--disable-background-networking',
-      '--disable-sync',
-      '--disable-translate',
-      '--metrics-recording-only',
-      '--no-report-upload',
-      '--disable-features=MediaRouter',
-      '--disable-component-update',
-      '--log-level=3',
-      '--disable-logging',
     ];
+
+    if (!isCloakBrowser) {
+      // Standard Chrome flags - safe for Chrome/Chromium
+      args.push(
+        '--disable-background-networking',
+        '--disable-sync',
+        '--disable-translate',
+        '--metrics-recording-only',
+        '--no-report-upload',
+        '--disable-features=MediaRouter',
+        '--disable-component-update',
+        '--log-level=3',
+        '--disable-logging',
+      );
+    }
 
     // Chrome for Testing binaries need --no-sandbox on Linux
     // and --disable-infobars to suppress the "Chrome for Testing" warning banner
+    // --test-type suppresses "unsupported command-line flag" warnings
     if (options.browserVersion && options.browserVersion !== 'system' && options.browserVersion !== 'latest') {
       args.push('--no-sandbox');
       args.push('--disable-infobars');
+      args.push('--test-type');
     }
 
     // Add proxy if configured
@@ -258,14 +273,63 @@ export class ChromeLauncher {
     }
 
     // Force session restore when startup type is 'continue'.
-    // This ensures tabs are restored even after unclean shutdown (e.g. SIGTERM
-    // from another RDP session), especially needed on Windows where modifying
-    // Preferences alone is not reliable.
+    // Skip for CloakBrowser when profile was previously used by a different Chrome version,
+    // as incompatible session data causes SIGTRAP crash.
     if (!options.startupType || options.startupType === 'continue') {
-      args.push('--restore-last-session');
+      if (!isCloakBrowser) {
+        args.push('--restore-last-session');
+      }
+    }
+
+    if (isCloakBrowser) {
+      // Chrome's profile data format is NOT backward-compatible.
+      // When a profile was previously opened by a newer Chrome (e.g. 146/147),
+      // CloakBrowser (Chromium 145) cannot read the data and crashes with SIGTRAP.
+      // We must wipe the Default directory and Local State to prevent this.
+      // This cleans caches, databases, and session data while allowing a fresh start.
+      const defaultDir = path.join(userDataDir, 'Default');
+      const localState = path.join(userDataDir, 'Local State');
+      for (const p of [defaultDir, localState]) {
+        if (fs.existsSync(p)) {
+          try {
+            const stat = fs.statSync(p);
+            if (stat.isDirectory()) {
+              fs.rmSync(p, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(p);
+            }
+            console.log(`[ChromeLauncher] Cleaned incompatible data: ${path.basename(p)}`);
+          } catch (err) {
+            console.warn(`[ChromeLauncher] Failed to clean: ${path.basename(p)}: ${err}`);
+          }
+        }
+      }
+
+      const fp = options.fingerprintFlags || {};
+      // Always set a fingerprint seed (random if not specified)
+      const seed = fp.seed || crypto.randomInt(100000, 999999999).toString();
+      args.push(`--fingerprint=${seed}`);
+
+      // Optional fingerprint flags
+      if (fp.platform) args.push(`--fingerprint-platform=${fp.platform}`);
+      if (fp.gpuVendor) args.push(`--fingerprint-gpu-vendor=${fp.gpuVendor}`);
+      if (fp.gpuRenderer) args.push(`--fingerprint-gpu-renderer=${fp.gpuRenderer}`);
+      if (fp.hardwareConcurrency) args.push(`--fingerprint-hardware-concurrency=${fp.hardwareConcurrency}`);
+      if (fp.deviceMemory) args.push(`--fingerprint-device-memory=${fp.deviceMemory}`);
+      if (fp.screenWidth) args.push(`--fingerprint-screen-width=${fp.screenWidth}`);
+      if (fp.screenHeight) args.push(`--fingerprint-screen-height=${fp.screenHeight}`);
+      if (fp.timezone) args.push(`--fingerprint-timezone=${fp.timezone}`);
+      if (fp.locale) args.push(`--fingerprint-locale=${fp.locale}`);
+      if (fp.brand) args.push(`--fingerprint-brand=${fp.brand}`);
+      if (fp.storageQuota) args.push(`--fingerprint-storage-quota=${fp.storageQuota}`);
+
+      console.log(`[ChromeLauncher] CloakBrowser fingerprint seed: ${seed}`);
     }
 
     // Launch Chrome
+    console.log(`[ChromeLauncher] Binary path: "${chromePath}"`);
+    console.log(`[ChromeLauncher] Binary exists: ${fs.existsSync(chromePath)}`);
+    console.log(`[ChromeLauncher] Args: ${JSON.stringify(args)}`);
     const child = spawn(chromePath, args, {
       detached: true,
       stdio: ['ignore', 'ignore', 'pipe'],

@@ -20,6 +20,9 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
   const [error, setError] = useState<string | null>(null);
   const [defaultVersion, setDefaultVersion] = useState<string>('system');
 
+  const [channelTab, setChannelTab] = useState<string>('CloakBrowser');
+  const CHANNELS = ['CloakBrowser', 'Stable', 'Beta', 'Dev', 'Canary', 'Milestone'];
+
   const loadInstalled = useCallback(() => {
     api.getInstalledBrowserVersions().then(setInstalled);
   }, []);
@@ -107,6 +110,7 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
   };
 
   const getChannelStyle = (channel: string): { background: string; color: string } => {
+    if (channel === 'CloakBrowser') return { background: 'linear-gradient(135deg, #0d9488, #065f46)', color: '#fff' };
     if (channel === 'Custom') return { background: '#7c3aed', color: '#fff' };
     if (channel === 'Stable') return { background: '#34a853', color: '#fff' };
     if (channel === 'Beta') return { background: '#fbbc04', color: '#333' };
@@ -153,6 +157,33 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
             {t('browserVersion.tabDownload')}
           </button>
         </div>
+
+        {/* Secondary Channel Tabs */}
+        {tab === 'available' && (
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
+            {CHANNELS.map(c => (
+              <button
+                key={c}
+                onClick={() => setChannelTab(c)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 20,
+                  border: '1px solid',
+                  borderColor: channelTab === c ? 'var(--primary)' : 'var(--border-color)',
+                  background: channelTab === c ? 'rgba(var(--primary-rgb), 0.1)' : 'var(--bg-tertiary)',
+                  color: channelTab === c ? 'var(--primary)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: channelTab === c ? 600 : 400,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {c === 'CloakBrowser' ? t('browserVersion.cloakBrowserLabel', 'CloakBrowser') : c}
+              </button>
+            ))}
+          </div>
+        )}
 
         {error && (
           <div style={{ padding: '8px 12px', background: 'rgba(234,67,53,0.15)', borderRadius: 6, color: '#ea4335', fontSize: 13, marginBottom: 12 }}>
@@ -287,7 +318,15 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {available.map((v) => (
+                  {available.filter(v => {
+                    if (channelTab === 'Milestone') {
+                      return !CHANNELS.includes(v.channel) || v.channel.startsWith('Milestone');
+                    }
+                    if (channelTab === 'CloakBrowser') {
+                      return v.channel === 'CloakBrowser';
+                    }
+                    return v.channel === channelTab;
+                  }).map((v) => (
                     <div key={v.version + v.channel} style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '12px 16px', background: 'var(--bg-tertiary)', borderRadius: 8,

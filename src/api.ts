@@ -30,6 +30,7 @@ function createMockProfile(input: CreateProfileInput): ProfileData {
     startup_type: input.startup_type || 'continue',
     startup_urls: input.startup_urls || null,
     has_password: false,
+    fingerprint_flags: null,
     status: 'ready',
     last_run_at: null,
     created_at: new Date().toISOString().replace('Z', ''),

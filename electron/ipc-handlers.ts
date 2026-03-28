@@ -165,6 +165,7 @@ export function registerIpcHandlers(
         startupType: profile.startup_type || 'continue',
         startupUrls: profile.startup_urls || undefined,
         browserVersion: profile.browser_version || 'system',
+        fingerprintFlags: profile.fingerprint_flags ? JSON.parse(profile.fingerprint_flags) : undefined,
       });
 
       profileManager.updateStatus(id, 'running');
@@ -415,7 +416,12 @@ export function registerIpcHandlers(
   // Browser version management
   ipcMain.handle('browser:getAvailable', async () => {
     try {
-      return await browserVersionManager.getAvailableVersions();
+      const [chromeVersions, cloakVersions] = await Promise.all([
+        browserVersionManager.getAvailableVersions(),
+        browserVersionManager.getCloakBrowserVersions(),
+      ]);
+      // CloakBrowser versions first, then Chrome versions
+      return [...cloakVersions, ...chromeVersions];
     } catch (error: any) {
       console.error('Failed to fetch available versions:', error);
       return [];
@@ -428,7 +434,11 @@ export function registerIpcHandlers(
 
   ipcMain.handle('browser:download', async (event, version: string, channel: string) => {
     try {
-      await browserVersionManager.downloadVersion(version, channel, event.sender);
+      if (channel === 'CloakBrowser') {
+        await browserVersionManager.downloadCloakBrowserVersion(version, event.sender);
+      } else {
+        await browserVersionManager.downloadVersion(version, channel, event.sender);
+      }
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };

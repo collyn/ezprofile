@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CreateProfileInput, GroupData, InstalledBrowserVersion, ProxyData } from '../types';
 import { getAPI } from '../api';
+import FingerprintSettings, { FingerprintFlags } from './FingerprintSettings';
 
 const api = getAPI();
 
@@ -29,6 +30,7 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
   const [savedProxies, setSavedProxies] = useState<ProxyData[]>([]);
   const [proxySource, setProxySource] = useState<'custom' | 'list'>('custom');
   const [submitting, setSubmitting] = useState(false);
+  const [fingerprintFlags, setFingerprintFlags] = useState<FingerprintFlags>({});
 
   useEffect(() => {
     api.getInstalledBrowserVersions().then(setInstalledVersions);
@@ -40,6 +42,19 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
   const [batchMode, setBatchMode] = useState(false);
   const [batchCount, setBatchCount] = useState('5');
 
+  // Detect if selected version is CloakBrowser
+  const isCloakBrowser = installedVersions.some(
+    v => v.version === browserVersion && v.channel === 'CloakBrowser'
+  );
+
+  // Build fingerprint_flags JSON for submission
+  const buildFingerprintJson = (): string | undefined => {
+    if (!isCloakBrowser) return undefined;
+    const nonEmpty = Object.fromEntries(
+      Object.entries(fingerprintFlags).filter(([, v]) => v && v.trim())
+    );
+    return Object.keys(nonEmpty).length > 0 ? JSON.stringify(nonEmpty) : undefined;
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -62,6 +77,7 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
             startup_type: startupType,
             startup_urls: startupType === 'specific_pages' ? startupUrls : undefined,
             browser_version: browserVersion !== 'system' ? browserVersion : undefined,
+            fingerprint_flags: buildFingerprintJson(),
           });
         }
       } else {
@@ -78,6 +94,7 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
           startup_type: startupType,
           startup_urls: startupType === 'specific_pages' ? startupUrls : undefined,
           browser_version: browserVersion !== 'system' ? browserVersion : undefined,
+          fingerprint_flags: buildFingerprintJson(),
         });
       }
       onClose();
@@ -172,6 +189,11 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
                 ))}
               </select>
             </div>
+
+            {/* CloakBrowser Fingerprint Settings */}
+            {isCloakBrowser && (
+              <FingerprintSettings flags={fingerprintFlags} onChange={setFingerprintFlags} />
+            )}
 
             {/* Proxy section */}
             <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

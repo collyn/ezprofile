@@ -108,6 +108,7 @@ export interface ProfileData {
   startup_type: 'new_tab' | 'continue' | 'specific_pages';
   startup_urls: string | null;
   has_password: boolean;
+  fingerprint_flags: string | null;
   status: 'ready' | 'running';
   last_run_at: string | null;
   created_at: string;
@@ -128,6 +129,7 @@ export interface CreateProfileInput {
   startup_type?: 'new_tab' | 'continue' | 'specific_pages';
   startup_urls?: string;
   browser_version?: string;
+  fingerprint_flags?: string;
 }
 
 export interface ChromeVersionInfo {

@@ -80,6 +80,9 @@ export function initDatabase(dbPath: string): Database.Database {
     if (!columnNames.includes('proxy_enabled')) {
       db.exec('ALTER TABLE profiles ADD COLUMN proxy_enabled INTEGER DEFAULT 0');
     }
+    if (!columnNames.includes('fingerprint_flags')) {
+      db.exec('ALTER TABLE profiles ADD COLUMN fingerprint_flags TEXT');
+    }
   } catch (error) {
     console.error('Database migration failed:', error);
   }

@@ -21,6 +21,7 @@ export interface Profile {
   startup_url: string | null;
   startup_type: 'new_tab' | 'continue' | 'specific_pages';
   startup_urls: string | null;
+  fingerprint_flags: string | null;
   password_hash: string | null;
   status: 'ready' | 'running';
   last_run_at: string | null;
@@ -42,6 +43,8 @@ export interface CreateProfileInput {
   startup_url?: string;
   startup_type?: 'new_tab' | 'continue' | 'specific_pages';
   startup_urls?: string;
+  fingerprint_flags?: string;
+  browser_version?: string;
 }
 
 export class ProfileManager {
@@ -86,8 +89,8 @@ export class ProfileManager {
     }
 
     this.db.prepare(`
-      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, proxy_enabled, notes, user_data_dir, startup_url, startup_type, startup_urls)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, proxy_enabled, notes, user_data_dir, startup_url, startup_type, startup_urls, fingerprint_flags, browser_version)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.name,
@@ -103,6 +106,8 @@ export class ProfileManager {
       input.startup_url || null,
       input.startup_type || 'continue',
       input.startup_urls || null,
+      input.fingerprint_flags || null,
+      input.browser_version || null,
     );
 
     return this.getById(id)!;
@@ -149,6 +154,7 @@ export class ProfileManager {
       startup_type: 'startup_type',
       startup_urls: 'startup_urls',
       browser_version: 'browser_version',
+      fingerprint_flags: 'fingerprint_flags',
     };
 
     for (const [key, dbField] of Object.entries(fieldMap)) {
@@ -228,8 +234,8 @@ export class ProfileManager {
     }
 
     this.db.prepare(`
-      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, proxy_enabled, notes, browser_version, user_data_dir, startup_url, startup_type, startup_urls)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO profiles (id, name, group_name, proxy_type, proxy_host, proxy_port, proxy_user, proxy_pass, proxy_enabled, notes, browser_version, user_data_dir, startup_url, startup_type, startup_urls, fingerprint_flags)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       newId,
       `${source.name} (Copy)`,
@@ -246,6 +252,7 @@ export class ProfileManager {
       source.startup_url,
       source.startup_type || 'continue',
       source.startup_urls,
+      source.fingerprint_flags,
     );
 
     return this.getById(newId)!;

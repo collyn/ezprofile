@@ -155,7 +155,7 @@
       "close": "Close"
     },
     "browserVersion": {
-      "title": "Manage Chrome Versions",
+      "title": "Manage Browser Versions",
       "loadError": "Failed to load version list",
       "completed": "Completed!",
       "initializing": "Initializing...",
@@ -180,7 +180,8 @@
       "invalidChrome": "No Chrome binary found in selected folder",
       "customPath": "Path: {{path}}",
       "setDefault": "Set Default",
-      "isDefault": "★ Default"
+      "isDefault": "★ Default",
+      "cloakBrowserLabel": "CloakBrowser"
     },
     "profileForm": {
       "editTitle": "Edit Profile",
@@ -188,7 +189,7 @@
       "nameLabel": "Profile Name *",
       "groupLabel": "Group",
       "noGroup": "-- No group --",
-      "chromeVersion": "Chrome Version",
+      "chromeVersion": "Browser Version",
       "systemChrome": "System (Installed Chrome)",
       "proxy": "Proxy",
       "type": "Type",
@@ -227,7 +228,22 @@
       "selectProxy": "-- Select a saved proxy --",
       "usernameOptional": "Username (optional)",
       "passwordOptional": "Password (optional)",
-      "notesPlaceholder": "Additional notes..."
+      "notesPlaceholder": "Additional notes...",
+      "fingerprintSettings": "Fingerprint Settings (CloakBrowser)",
+      "fingerprintNote": "CloakBrowser is stealthy by default — no config needed. Customize only for specific requirements.",
+      "fingerprintSeed": "Fingerprint Seed",
+      "fingerprintSeedPlaceholder": "Auto-random (leave empty)",
+      "fingerprintPlatform": "Platform",
+      "fingerprintPlatformAuto": "Auto",
+      "fingerprintGpuVendor": "GPU Vendor",
+      "fingerprintGpuRenderer": "GPU Renderer",
+      "fingerprintScreenRes": "Screen Resolution",
+      "fingerprintHardwareConcurrency": "CPU Cores",
+      "fingerprintDeviceMemory": "Device Memory (GB)",
+      "fingerprintTimezone": "Timezone",
+      "fingerprintLocale": "Locale",
+      "fingerprintBrand": "Browser Brand",
+      "fingerprintAuto": "Auto"
     },
     "batchGroup": {
       "title": "Assign group to {{count}} profiles",

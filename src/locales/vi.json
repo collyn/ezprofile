@@ -155,7 +155,7 @@
       "close": "Đóng"
     },
     "browserVersion": {
-      "title": "Quản lý Phiên bản Chrome",
+      "title": "Quản lý Phiên bản Trình duyệt",
       "loadError": "Không thể tải danh sách phiên bản",
       "completed": "Hoàn tất!",
       "initializing": "Đang khởi tạo...",
@@ -180,7 +180,8 @@
       "invalidChrome": "Không tìm thấy Chrome trong thư mục đã chọn",
       "customPath": "Đường dẫn: {{path}}",
       "setDefault": "Đặt mặc định",
-      "isDefault": "★ Mặc định"
+      "isDefault": "★ Mặc định",
+      "cloakBrowserLabel": "CloakBrowser"
     },
     "profileForm": {
       "editTitle": "Chỉnh sửa Profile",
@@ -188,7 +189,7 @@
       "nameLabel": "Tên Profile *",
       "groupLabel": "Nhóm",
       "noGroup": "-- Không có nhóm --",
-      "chromeVersion": "Phiên bản Chrome",
+      "chromeVersion": "Phiên bản Trình duyệt",
       "systemChrome": "System (Chrome cài trên máy)",
       "proxy": "Proxy",
       "type": "Loại",
@@ -227,7 +228,20 @@
       "selectProxy": "-- Chọn proxy đã lưu --",
       "usernameOptional": "Username (tuỳ chọn)",
       "passwordOptional": "Password (tuỳ chọn)",
-      "notesPlaceholder": "Ghi chú thêm..."
+      "notesPlaceholder": "Ghi chú thêm...",
+      "fingerprintSettings": "Cấu hình Fingerprint (CloakBrowser)",
+      "fingerprintNote": "CloakBrowser mặc định đã ẩn danh — không cần cấu hình. Tuỳ chỉnh chỉ khi cần fingerprint cụ thể.",
+      "fingerprintSeed": "Fingerprint Seed",
+      "fingerprintSeedPlaceholder": "Tự động ngẫu nhiên (để trống)",
+      "fingerprintPlatform": "Nền tảng",
+      "fingerprintPlatformAuto": "Tự động",
+      "fingerprintGpuVendor": "GPU Vendor",
+      "fingerprintGpuRenderer": "GPU Renderer",
+      "fingerprintScreenRes": "Độ phân giải màn hình",
+      "fingerprintHardwareConcurrency": "Số nhân CPU",
+      "fingerprintDeviceMemory": "Bộ nhớ thiết bị (GB)",
+      "fingerprintTimezone": "Múi giờ",
+      "fingerprintLocale": "Ngôn ngữ"
     },
     "batchGroup": {
       "title": "Gán nhóm cho {{count}} profiles",

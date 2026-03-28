@@ -3,11 +3,13 @@ import * as path from 'path';
 import * as os from 'os';
 import * as https from 'https';
 import * as http from 'http';
+import { execSync } from 'child_process';
 import AdmZip from 'adm-zip';
 import { app, WebContents } from 'electron';
 
 const CHROME_VERSIONS_API = 'https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json';
 const CHROME_STABLE_API = 'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json';
+const CLOAKBROWSER_RELEASES_API = 'https://api.github.com/repos/CloakHQ/CloakBrowser/releases';
 
 export interface ChromeVersionInfo {
   version: string;
@@ -64,7 +66,16 @@ export class BrowserVersionManager {
   }
 
   /**
-   * Get the Chrome binary path inside an extracted version directory.
+   * Check if a version string represents a CloakBrowser version.
+   */
+  isCloakBrowserVersion(version: string): boolean {
+    const metadata = this.loadMetadata();
+    const entry = metadata.versions.find(v => v.version === version);
+    return entry?.channel === 'CloakBrowser' || version.startsWith('CloakBrowser');
+  }
+
+  /**
+   * Get the Chrome/CloakBrowser binary path inside an extracted version directory.
    * For custom versions, returns the stored chromePath from metadata.
    */
   getChromeBinaryPath(version: string): string {
@@ -73,6 +84,11 @@ export class BrowserVersionManager {
     const entry = metadata.versions.find(v => v.version === version);
     if (entry?.chromePath) {
       return entry.chromePath;
+    }
+
+    // CloakBrowser binary path
+    if (entry?.channel === 'CloakBrowser') {
+      return this.getCloakBrowserBinaryPath(version);
     }
 
     const platform = os.platform();
@@ -95,6 +111,29 @@ export class BrowserVersionManager {
     } else {
       // chrome-linux64/chrome
       return path.join(versionDir, 'chrome-linux64', 'chrome');
+    }
+  }
+
+  /**
+   * Get the CloakBrowser binary path for a downloaded version.
+   * CloakBrowser .tar.gz extracts to: chrome-linux/ directory on Linux,
+   * chrome-win/ on Windows.
+   */
+  private getCloakBrowserBinaryPath(version: string): string {
+    const platform = os.platform();
+    const versionDir = path.join(this.browsersDir, version);
+
+    if (platform === 'win32') {
+      return path.join(versionDir, 'chrome-win', 'chrome.exe');
+    } else if (platform === 'darwin') {
+      return path.join(versionDir, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium');
+    } else {
+      // Linux: check both possible structures
+      const chromeLinux = path.join(versionDir, 'chrome-linux', 'chrome');
+      const direct = path.join(versionDir, 'chrome');
+      if (fs.existsSync(chromeLinux)) return chromeLinux;
+      if (fs.existsSync(direct)) return direct;
+      return chromeLinux; // fallback
     }
   }
 
@@ -170,6 +209,172 @@ export class BrowserVersionManager {
   }
 
   /**
+   * Get available CloakBrowser versions from GitHub Releases.
+   */
+  async getCloakBrowserVersions(): Promise<ChromeVersionInfo[]> {
+    const installedVersions = this.getInstalledVersions();
+    const installedSet = new Set(installedVersions.map(v => v.version));
+    const results: ChromeVersionInfo[] = [];
+
+    try {
+      const releases = await this.fetchJSON(CLOAKBROWSER_RELEASES_API);
+      const platformKey = this.getCloakBrowserPlatformKey();
+
+      for (const release of (Array.isArray(releases) ? releases : [])) {
+        if (release.draft || release.prerelease) continue;
+
+        // Find asset for current platform
+        const assets = release.assets || [];
+        const asset = assets.find((a: any) => a.name === platformKey);
+        if (!asset) continue;
+
+        // Parse version from tag: "chromium-v145.0.7632.159.7" → "CloakBrowser 145.0.7632.159.7"
+        const tagName = release.tag_name || '';
+        const versionMatch = tagName.match(/v?([\d.]+)$/);
+        const chromiumVersion = versionMatch ? versionMatch[1] : tagName;
+        const displayVersion = `CloakBrowser ${chromiumVersion}`;
+
+        results.push({
+          version: displayVersion,
+          channel: 'CloakBrowser',
+          revision: chromiumVersion,
+          installed: installedSet.has(displayVersion),
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch CloakBrowser releases:', err);
+    }
+
+    return results;
+  }
+
+  /**
+   * Get the CloakBrowser asset filename for the current platform.
+   */
+  private getCloakBrowserPlatformKey(): string {
+    const platform = os.platform();
+    const arch = os.arch();
+
+    if (platform === 'win32') {
+      return 'cloakbrowser-windows-x64.zip';
+    } else if (platform === 'darwin') {
+      return arch === 'arm64' ? 'cloakbrowser-macos-arm64.tar.gz' : 'cloakbrowser-macos-x64.tar.gz';
+    } else {
+      return arch === 'arm64' ? 'cloakbrowser-linux-arm64.tar.gz' : 'cloakbrowser-linux-x64.tar.gz';
+    }
+  }
+
+  /**
+   * Download and install a CloakBrowser version from GitHub Releases.
+   */
+  async downloadCloakBrowserVersion(
+    version: string,
+    webContents?: WebContents
+  ): Promise<void> {
+    const platformKey = this.getCloakBrowserPlatformKey();
+
+    // Extract chromium version from display version: "CloakBrowser 145.0.7632.159.7"
+    const chromiumVersion = version.replace('CloakBrowser ', '');
+
+    // Fetch releases to find matching download URL
+    let downloadUrl: string | null = null;
+    const releases = await this.fetchJSON(CLOAKBROWSER_RELEASES_API);
+    for (const release of (Array.isArray(releases) ? releases : [])) {
+      const tagName = release.tag_name || '';
+      if (tagName.includes(chromiumVersion)) {
+        const asset = (release.assets || []).find((a: any) => a.name === platformKey);
+        if (asset) {
+          downloadUrl = asset.browser_download_url;
+          break;
+        }
+      }
+    }
+
+    if (!downloadUrl) {
+      throw new Error(`No CloakBrowser download available for version ${version} on platform ${platformKey}`);
+    }
+
+    const versionDir = path.join(this.browsersDir, version);
+    const ext = platformKey.endsWith('.zip') ? '.zip' : '.tar.gz';
+    const archivePath = path.join(this.browsersDir, `cloakbrowser-${chromiumVersion}${ext}`);
+
+    if (webContents && !webContents.isDestroyed()) {
+      webContents.send('browser:downloadProgress', version, 0, 'Downloading...');
+    }
+
+    try {
+      await this.downloadFile(downloadUrl, archivePath, (percent, downloaded, total) => {
+        if (webContents && !webContents.isDestroyed()) {
+          const downloadedMB = (downloaded / 1024 / 1024).toFixed(1);
+          const totalMB = (total / 1024 / 1024).toFixed(1);
+          webContents.send(
+            'browser:downloadProgress',
+            version,
+            percent,
+            `Downloading: ${downloadedMB}MB / ${totalMB}MB`
+          );
+        }
+      });
+
+      // Extract
+      if (webContents && !webContents.isDestroyed()) {
+        webContents.send('browser:downloadProgress', version, 100, 'Extracting...');
+      }
+
+      if (fs.existsSync(versionDir)) {
+        fs.rmSync(versionDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(versionDir, { recursive: true });
+
+      if (ext === '.zip') {
+        // Windows: extract ZIP
+        const zip = new AdmZip(archivePath);
+        zip.extractAllTo(versionDir, true);
+      } else {
+        // Linux/macOS: extract tar.gz
+        execSync(`tar -xzf "${archivePath}" -C "${versionDir}"`);
+      }
+
+      // Make binary executable on Linux/macOS
+      if (os.platform() !== 'win32') {
+        try {
+          execSync(`chmod -R +x "${versionDir}"`);
+        } catch (chmodErr) {
+          console.error('Failed to set executable permissions:', chmodErr);
+        }
+      }
+
+      // Save metadata
+      const metadata = this.loadMetadata();
+      metadata.versions = metadata.versions.filter(v => v.version !== version);
+      metadata.versions.push({
+        version,
+        channel: 'CloakBrowser',
+        installedAt: new Date().toISOString(),
+      });
+      this.saveMetadata(metadata);
+
+      // Cleanup archive
+      if (fs.existsSync(archivePath)) {
+        fs.unlinkSync(archivePath);
+      }
+
+      if (webContents && !webContents.isDestroyed()) {
+        webContents.send('browser:downloadProgress', version, 100, 'Completed!');
+      }
+    } catch (error: any) {
+      // Cleanup on failure
+      if (fs.existsSync(archivePath)) {
+        try { fs.unlinkSync(archivePath); } catch { }
+      }
+      if (fs.existsSync(versionDir)) {
+        try { fs.rmSync(versionDir, { recursive: true, force: true }); } catch { }
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Get locally installed Chrome versions
    */
   getInstalledVersions(): InstalledVersion[] {
@@ -177,15 +382,33 @@ export class BrowserVersionManager {
     return metadata.versions
       .filter(v => {
         // For custom versions, use the stored chromePath
-        const binaryPath = v.chromePath || this.getChromeBinaryPathForDownloaded(v.version);
+        // For CloakBrowser, use the CloakBrowser-specific path logic
+        let binaryPath: string;
+        if (v.chromePath) {
+          binaryPath = v.chromePath;
+        } else if (v.channel === 'CloakBrowser') {
+          binaryPath = this.getCloakBrowserBinaryPath(v.version);
+        } else {
+          binaryPath = this.getChromeBinaryPathForDownloaded(v.version);
+        }
         return fs.existsSync(binaryPath);
       })
-      .map(v => ({
-        version: v.version,
-        channel: v.channel,
-        installedAt: v.installedAt,
-        chromePath: v.chromePath || this.getChromeBinaryPathForDownloaded(v.version),
-      }));
+      .map(v => {
+        let chromePath: string;
+        if (v.chromePath) {
+          chromePath = v.chromePath;
+        } else if (v.channel === 'CloakBrowser') {
+          chromePath = this.getCloakBrowserBinaryPath(v.version);
+        } else {
+          chromePath = this.getChromeBinaryPathForDownloaded(v.version);
+        }
+        return {
+          version: v.version,
+          channel: v.channel,
+          installedAt: v.installedAt,
+          chromePath,
+        };
+      });
   }
 
   /**
@@ -455,9 +678,21 @@ export class BrowserVersionManager {
 
   private fetchJSON(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      https.get(url, (res) => {
+      const parsedUrl = new URL(url);
+      const options = {
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.pathname + parsedUrl.search,
+        headers: {
+          'User-Agent': 'EzProfile-Browser-Manager',
+          'Accept': 'application/json',
+        },
+      };
+      https.get(options, (res) => {
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           return this.fetchJSON(res.headers.location).then(resolve, reject);
+        }
+        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+          return reject(new Error(`HTTP ${res.statusCode} fetching ${url}`));
         }
         let data = '';
         res.on('data', (chunk) => (data += chunk));
