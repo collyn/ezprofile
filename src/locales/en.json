@@ -105,7 +105,8 @@
         "desc": "Specify the path to the Chrome executable. Leave empty to auto-detect installed Chrome.",
         "placeholder": "Auto-detect Chrome...",
         "select": "Select file...",
-        "save": "Save"
+        "save": "Save",
+        "reset": "Reset to default"
       },
       "profilesDir": {
         "title": "Profiles Directory",

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, memo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProfileData, CreateProfileInput, GroupData } from '../types';
 import CreateProfileModal from '../components/CreateProfileModal';
@@ -138,6 +138,25 @@ export default function ProfileList({
       setSelectedIds(new Set(filteredProfiles.map((p) => p.id)));
     }
   }, [filteredProfiles, selectedIds.size]);
+
+  // Keyboard shortcuts: Ctrl/Cmd+A = select all, Esc = deselect
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when user is typing in an input/textarea/select
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        handleSelectAll();
+      }
+      if (e.key === 'Escape') {
+        setSelectedIds(new Set());
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleSelectAll]);
 
   const handleSelectOne = useCallback((id: string) => {
     setSelectedIds((prev) => {

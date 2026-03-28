@@ -348,15 +348,26 @@ export default function BrowserVersionModal({ onClose }: BrowserVersionModalProp
                         {v.installed ? (
                           <span style={{ fontSize: 12, color: '#34a853', fontWeight: 500 }}>{t('browserVersion.installedCheck')}</span>
                         ) : downloading === v.version ? (
-                          <div style={{ textAlign: 'right', minWidth: 150 }}>
+                          <div style={{ textAlign: 'right', minWidth: 180 }}>
                             <div style={{
-                              width: '100%', height: 6, background: 'var(--bg-secondary)',
-                              borderRadius: 3, overflow: 'hidden', marginBottom: 4,
+                              width: '100%', height: 18, background: 'rgba(255,255,255,0.1)',
+                              borderRadius: 9, overflow: 'hidden', marginBottom: 4,
+                              position: 'relative', border: '1px solid rgba(255,255,255,0.15)',
                             }}>
                               <div style={{
-                                width: `${downloadProgress.percent}%`, height: '100%',
-                                background: 'var(--primary)', borderRadius: 3, transition: 'width 0.3s ease',
+                                width: `${Math.max(downloadProgress.percent, 2)}%`, height: '100%',
+                                background: 'linear-gradient(90deg, #16a34a, #22c55e, #4ade80)',
+                                borderRadius: 9, transition: 'width 0.3s ease',
+                                boxShadow: '0 0 8px rgba(34,197,94,0.4)',
                               }} />
+                              <span style={{
+                                position: 'absolute', top: '50%', left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                fontSize: 10, fontWeight: 700, color: '#fff',
+                                textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+                              }}>
+                                {downloadProgress.percent}%
+                              </span>
                             </div>
                             <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
                               {downloadProgress.message}

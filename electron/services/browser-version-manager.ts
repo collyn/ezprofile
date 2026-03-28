@@ -124,16 +124,65 @@ export class BrowserVersionManager {
     const versionDir = path.join(this.browsersDir, version);
 
     if (platform === 'win32') {
-      return path.join(versionDir, 'chrome-win', 'chrome.exe');
+      // Check multiple possible structures for Windows
+      const candidates = [
+        path.join(versionDir, 'chrome-win', 'chrome.exe'),
+        path.join(versionDir, 'chrome-win64', 'chrome.exe'),
+        path.join(versionDir, 'chrome.exe'),
+      ];
+      // Also scan for chrome.exe in any immediate subdirectory
+      try {
+        const entries = fs.readdirSync(versionDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            candidates.push(path.join(versionDir, entry.name, 'chrome.exe'));
+          }
+        }
+      } catch { /* version dir may not exist yet */ }
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) return candidate;
+      }
+      return candidates[0]; // fallback to chrome-win/chrome.exe
     } else if (platform === 'darwin') {
-      return path.join(versionDir, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium');
+      // Check multiple possible macOS structures
+      const candidates = [
+        path.join(versionDir, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+        path.join(versionDir, 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+        path.join(versionDir, 'chrome-mac-arm64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+        path.join(versionDir, 'chrome-mac-x64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+      ];
+      // Scan for Chromium.app in any subdirectory
+      try {
+        const entries = fs.readdirSync(versionDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            candidates.push(path.join(versionDir, entry.name, 'Chromium.app', 'Contents', 'MacOS', 'Chromium'));
+          }
+        }
+      } catch { /* version dir may not exist yet */ }
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) return candidate;
+      }
+      return candidates[0]; // fallback
     } else {
-      // Linux: check both possible structures
-      const chromeLinux = path.join(versionDir, 'chrome-linux', 'chrome');
-      const direct = path.join(versionDir, 'chrome');
-      if (fs.existsSync(chromeLinux)) return chromeLinux;
-      if (fs.existsSync(direct)) return direct;
-      return chromeLinux; // fallback
+      // Linux: check multiple possible structures
+      const candidates = [
+        path.join(versionDir, 'chrome-linux', 'chrome'),
+        path.join(versionDir, 'chrome'),
+      ];
+      // Scan for chrome in any subdirectory
+      try {
+        const entries = fs.readdirSync(versionDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            candidates.push(path.join(versionDir, entry.name, 'chrome'));
+          }
+        }
+      } catch { /* version dir may not exist yet */ }
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) return candidate;
+      }
+      return candidates[0]; // fallback
     }
   }
 
@@ -258,7 +307,7 @@ export class BrowserVersionManager {
     if (platform === 'win32') {
       return 'cloakbrowser-windows-x64.zip';
     } else if (platform === 'darwin') {
-      return arch === 'arm64' ? 'cloakbrowser-macos-arm64.tar.gz' : 'cloakbrowser-macos-x64.tar.gz';
+      return arch === 'arm64' ? 'cloakbrowser-darwin-arm64.tar.gz' : 'cloakbrowser-darwin-x64.tar.gz';
     } else {
       return arch === 'arm64' ? 'cloakbrowser-linux-arm64.tar.gz' : 'cloakbrowser-linux-x64.tar.gz';
     }

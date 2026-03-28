@@ -207,10 +207,10 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
             {t('settings.chromePath.save')}
           </button>
           {chromePath && (
-            <button className="btn btn-sm btn-outline" onClick={handleResetChromePath} title="Reset về mặc định">
+            <button className="btn btn-sm btn-outline" onClick={handleResetChromePath} title={t('settings.chromePath.reset')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <path d="M1 4v6h6M23 20v-6h-6" />
-                <path d="M20.49 9A9 9 0 105.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" />
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
               </svg>
             </button>
           )}
@@ -416,8 +416,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           border: '1px solid var(--border-color)', fontSize: 12,
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
-          <ShortcutRow keys={['Ctrl', 'A']} desc={t('settings.shortcuts.selectAll')} />
-          <ShortcutRow keys={['Ctrl', 'Click']} desc={t('settings.shortcuts.selectMulti')} />
+          <ShortcutRow keys={[isMac ? '⌘' : 'Ctrl', 'A']} desc={t('settings.shortcuts.selectAll')} />
+          <ShortcutRow keys={[isMac ? '⌘' : 'Ctrl', 'Click']} desc={t('settings.shortcuts.selectMulti')} />
           <ShortcutRow keys={['Right Click']} desc={t('settings.shortcuts.contextMenu')} />
           <ShortcutRow keys={['Esc']} desc={t('settings.shortcuts.close')} />
         </div>

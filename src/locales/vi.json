@@ -105,7 +105,8 @@
         "desc": "Chỉ định đường dẫn đến file Chrome trên hệ thống. Để trống sẽ tự động tìm Chrome đã cài đặt.",
         "placeholder": "Tự động phát hiện Chrome...",
         "select": "Chọn file...",
-        "save": "Lưu"
+        "save": "Lưu",
+        "reset": "Reset về mặc định"
       },
       "profilesDir": {
         "title": "Thư mục Profiles",

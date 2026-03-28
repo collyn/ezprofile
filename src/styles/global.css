@@ -103,6 +103,21 @@ body {
   flex-shrink: 0;
 }
 
+/* macOS: center the title between traffic lights (left) and controls (right) */
+.titlebar.darwin {
+  justify-content: space-between;
+}
+
+.titlebar-traffic-spacer {
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.titlebar.darwin .titlebar-title {
+  flex: 1;
+  justify-content: center;
+}
+
 .titlebar-title {
   display: flex;
   align-items: center;

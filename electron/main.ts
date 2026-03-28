@@ -28,6 +28,8 @@ let proxyChecker: ProxyChecker;
 let cookieManager: CookieManager;
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -42,8 +44,10 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    frame: false,
-    titleBarStyle: 'hidden',
+    // macOS: native traffic lights on the left; Windows/Linux: custom frameless
+    ...(isMac
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 10 } }
+      : { frame: false, titleBarStyle: 'hidden' }),
     backgroundColor: '#0f0f14',
   });
 

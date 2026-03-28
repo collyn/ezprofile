@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { getAPI } from '../api';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +10,11 @@ interface TitleBarProps {
 
 export default function TitleBar({ onOpenSettings }: TitleBarProps) {
   const { t, i18n } = useTranslation();
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    api.getPlatform().then((p: string) => setIsMac(p === 'darwin'));
+  }, []);
 
   const toggleLanguage = () => {
     const nextLang = i18n.language === 'en' ? 'vi' : 'en';
@@ -17,7 +23,11 @@ export default function TitleBar({ onOpenSettings }: TitleBarProps) {
   };
 
   return (
-    <div className="titlebar">
+    <div className={`titlebar${isMac ? ' darwin' : ''}`}>
+      {/* On macOS: left spacer for native traffic lights */}
+      {isMac && <div className="titlebar-traffic-spacer" />}
+
+      {/* Title — always visible, centered on macOS */}
       <div className="titlebar-title">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
@@ -25,6 +35,7 @@ export default function TitleBar({ onOpenSettings }: TitleBarProps) {
         </svg>
         <span>EzProfile</span>
       </div>
+
       <div className="titlebar-controls">
         <button className="titlebar-btn" onClick={toggleLanguage} title={i18n.language === 'vi' ? 'English' : 'Tiếng Việt'} style={{ fontSize: '11px', fontWeight: 'bold' }}>
           {i18n.language === 'vi' ? 'EN' : 'VI'}
@@ -37,21 +48,26 @@ export default function TitleBar({ onOpenSettings }: TitleBarProps) {
             </svg>
           </button>
         )}
-        <button className="titlebar-btn" onClick={() => api.minimizeWindow()} title={t('app.minimize')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h14" />
-          </svg>
-        </button>
-        <button className="titlebar-btn" onClick={() => api.maximizeWindow()} title={t('app.maximize')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="4" y="4" width="16" height="16" rx="2" />
-          </svg>
-        </button>
-        <button className="titlebar-btn close" onClick={() => api.closeWindow()} title={t('app.close')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        {/* Window control buttons — only on non-macOS */}
+        {!isMac && (
+          <>
+            <button className="titlebar-btn" onClick={() => api.minimizeWindow()} title={t('app.minimize')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14" />
+              </svg>
+            </button>
+            <button className="titlebar-btn" onClick={() => api.maximizeWindow()} title={t('app.maximize')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+              </svg>
+            </button>
+            <button className="titlebar-btn close" onClick={() => api.closeWindow()} title={t('app.close')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
