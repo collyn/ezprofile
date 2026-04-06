@@ -40,6 +40,63 @@ export class CookieManager {
     }
   }
 
+  /**
+   * Extract all cookies from a Chrome profile using CDP (Chrome decrypts them itself).
+   * Returns portable cookies ready for cross-platform backup.
+   */
+  async exportCookiesToArray(profile: Profile): Promise<PortableCookie[]> {
+    const defaultDir = path.join(profile.user_data_dir, 'Default');
+    const cookiesDb = path.join(defaultDir, 'Cookies');
+    if (!fs.existsSync(cookiesDb)) return [];
+
+    console.log(`[CookieManager] Extracting cookies via CDP for profile ${profile.id}`);
+
+    const browser = await puppeteer.launch({
+      executablePath: this.chromeLauncher.getChromePath(),
+      userDataDir: profile.user_data_dir,
+      headless: 'new' as any,
+      ignoreDefaultArgs: ['--enable-automation', '--use-mock-keychain', '--password-store=basic'],
+      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3']
+    });
+
+    try {
+      const pages = await browser.pages();
+      const page = pages.length > 0 ? pages[0] : await browser.newPage();
+
+      await page.goto('about:blank');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      const client = await page.createCDPSession();
+      const { cookies } = await client.send('Network.getAllCookies');
+
+      const portable: PortableCookie[] = cookies
+        .filter((c: any) => c.value) // skip empty
+        .map((c: any) => {
+          let sameSite = c.sameSite || 'Lax';
+          if (sameSite === 'None' || sameSite === 'Lax' || sameSite === 'Strict') {
+            // Already correct CDP format
+          } else {
+            sameSite = 'Lax';
+          }
+          return {
+            name: c.name,
+            value: c.value,
+            domain: c.domain,
+            path: c.path || '/',
+            secure: !!c.secure,
+            httpOnly: !!c.httpOnly,
+            sameSite,
+            expires: c.expires && c.expires > 0 ? c.expires : undefined,
+          };
+        });
+
+      console.log(`[CookieManager] Extracted ${portable.length} cookies via CDP`);
+      return portable;
+    } finally {
+      await browser.close();
+    }
+  }
+
   async importCookies(profile: Profile, filePath: string): Promise<void> {
     const isRunning = this.chromeLauncher.isRunning(profile.id);
     if (isRunning) {
@@ -141,7 +198,7 @@ export class CookieManager {
         sameSite: c.sameSite,
       };
 
-      if (c.expires > 0) {
+      if (c.expires != null && c.expires > 0) {
         param.expires = c.expires;
       }
 

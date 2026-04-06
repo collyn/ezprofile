@@ -9,7 +9,7 @@ import { EncryptionService } from './encryption-service';
 import { GDriveService } from './gdrive-service';
 import { S3Service } from './s3-service';
 import { CookieManager } from './cookie-manager';
-import { extractPortableCookies, savePortableCookies, readPortableCookies, removePortableCookies } from './chrome-cookie-crypto';
+import { savePortableCookies, readPortableCookies, removePortableCookies } from './chrome-cookie-crypto';
 import { WebContents } from 'electron';
 
 // ─────────────────────────────────────────────────────────────
@@ -136,15 +136,17 @@ export class BackupManager {
     }
 
     try {
-      // Extract portable cookies for cross-platform compatibility
-      try {
-        const cookies = extractPortableCookies(profile.user_data_dir);
-        if (cookies.length > 0) {
-          savePortableCookies(profile.user_data_dir, cookies);
-          if (webContents) webContents.send('profile:backupProgress', profile.id, `Extracted ${cookies.length} cookies for portability`);
+      // Extract portable cookies via CDP for cross-platform compatibility
+      if (this.cookieManager) {
+        try {
+          const cookies = await this.cookieManager.exportCookiesToArray(profile);
+          if (cookies.length > 0) {
+            savePortableCookies(profile.user_data_dir, cookies);
+            if (webContents) webContents.send('profile:backupProgress', profile.id, `Extracted ${cookies.length} cookies for portability`);
+          }
+        } catch (err) {
+          console.warn('[BackupManager] Portable cookie extraction failed (non-fatal):', err);
         }
-      } catch (err) {
-        console.warn('[BackupManager] Portable cookie extraction failed (non-fatal):', err);
       }
 
       const isEzpSync = targetZipPath.endsWith('.ezpsync');
@@ -264,15 +266,17 @@ export class BackupManager {
     const tmpEncrypted = path.join(tmpDir, `ezprofile_${profile.id}_${Date.now()}.ezpsync`);
 
     try {
-      // 0. Extract portable cookies for cross-platform compatibility
-      try {
-        const cookies = extractPortableCookies(profile.user_data_dir);
-        if (cookies.length > 0) {
-          savePortableCookies(profile.user_data_dir, cookies);
-          onProgress?.({ profileId: profile.id, message: `Extracted ${cookies.length} cookies for portability`, percent: 5 });
+      // 0. Extract portable cookies via CDP for cross-platform compatibility
+      if (this.cookieManager) {
+        try {
+          const cookies = await this.cookieManager.exportCookiesToArray(profile);
+          if (cookies.length > 0) {
+            savePortableCookies(profile.user_data_dir, cookies);
+            onProgress?.({ profileId: profile.id, message: `Extracted ${cookies.length} cookies for portability`, percent: 5 });
+          }
+        } catch (err) {
+          console.warn('[BackupManager] Portable cookie extraction failed (non-fatal):', err);
         }
-      } catch (err) {
-        console.warn('[BackupManager] Portable cookie extraction failed (non-fatal):', err);
       }
 
       // 1. Compress
