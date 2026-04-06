@@ -846,7 +846,13 @@ export function registerIpcHandlers(
 
       const jsonStr = JSON.stringify(exportItems);
       const payload = encryptionSvc.encrypt(Buffer.from(jsonStr, 'utf-8'), key);
-      const buffer = encryptionSvc.serializePayload(payload);
+
+      // New portable format: EZPL magic || salt || iv || tag || ciphertext
+      // The salt is included so any machine with the correct passphrase can decrypt.
+      const saltHex = profileManager.getSetting('sync_encryption_salt') || '';
+      const salt = saltHex ? Buffer.from(saltHex, 'hex') : encryptionSvc.generateSalt();
+      const EZPL_MAGIC = Buffer.from('EZPL');
+      const buffer = Buffer.concat([EZPL_MAGIC, salt, payload.iv, payload.tag, payload.ciphertext]);
 
       if (provider === 'googledrive' && gdriveService) {
         await gdriveService.uploadBuffer(buffer, 'profiles_list.json.enc');
@@ -863,12 +869,14 @@ export function registerIpcHandlers(
     }
   });
 
-  ipcMain.handle('sync:restoreAllListFromCloud', async () => {
+  ipcMain.handle('sync:restoreAllListFromCloud', async (_event, passphrase?: string) => {
     if (!syncScheduler || !encryptionSvc) return { success: false, error: 'Sync not initialized' };
     const provider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
     if (!provider) return { success: false, error: 'No sync provider configured' };
-    const key = syncScheduler.getPassphraseKey();
-    if (!key) return { success: false, error: 'Sync passphrase not set' };
+
+    // Either a passphrase must be provided, or the key must already be in memory
+    const existingKey = syncScheduler.getPassphraseKey();
+    if (!existingKey && !passphrase) return { success: false, error: 'Sync passphrase not set' };
 
     try {
       let buffer: Buffer | null = null;
@@ -881,10 +889,56 @@ export function registerIpcHandlers(
 
       if (!buffer) return { success: false, error: 'Profile list not found on cloud' };
 
-      const payload = encryptionSvc.deserializePayload(buffer);
-      const jsonStr = encryptionSvc.decrypt(payload, key).toString('utf-8');
-      const records = JSON.parse(jsonStr);
+      let jsonStr: string;
+      const EZPL_MAGIC = Buffer.from('EZPL');
 
+      if (buffer.length >= 4 && buffer.subarray(0, 4).equals(EZPL_MAGIC)) {
+        // New portable format: EZPL (4) || salt (32) || iv (12) || tag (16) || ciphertext
+        const embeddedSalt = buffer.subarray(4, 36);
+        const iv = buffer.subarray(36, 48);
+        const tag = buffer.subarray(48, 64);
+        const ciphertext = buffer.subarray(64);
+
+        let decryptKey: Buffer;
+        if (passphrase) {
+          // Derive key from passphrase + embedded salt (cross-machine scenario)
+          decryptKey = await encryptionSvc.deriveKey(passphrase, embeddedSalt);
+        } else {
+          decryptKey = existingKey!;
+        }
+
+        try {
+          jsonStr = encryptionSvc.decrypt({ iv, ciphertext, tag }, decryptKey).toString('utf-8');
+        } catch {
+          // If using existing key failed, request passphrase from user
+          if (!passphrase) {
+            return { success: false, error: 'PASSPHRASE_REQUIRED' };
+          }
+          return { success: false, error: 'Decryption failed — wrong passphrase.' };
+        }
+
+        // On success: sync the salt & key locally so subsequent profile restores work
+        if (passphrase) {
+          const key = await encryptionSvc.deriveKey(passphrase, embeddedSalt);
+          syncScheduler.setPassphraseKey(key);
+          profileManager.setSetting('sync_encryption_salt', embeddedSalt.toString('hex'));
+          const encryptedKeyHex = encryptionSvc.encryptString(key.toString('hex'));
+          profileManager.setSetting('sync_encrypted_key', encryptedKeyHex);
+        }
+      } else {
+        // Legacy format: iv (12) || tag (16) || ciphertext (no embedded salt)
+        if (!existingKey) {
+          return { success: false, error: 'PASSPHRASE_REQUIRED' };
+        }
+        const payload = encryptionSvc.deserializePayload(buffer);
+        try {
+          jsonStr = encryptionSvc.decrypt(payload, existingKey).toString('utf-8');
+        } catch {
+          return { success: false, error: 'PASSPHRASE_REQUIRED' };
+        }
+      }
+
+      const records = JSON.parse(jsonStr);
       const profilesImported = profileManager.importMany(records as any);
       return { success: true, count: profilesImported.length };
     } catch (e: any) {

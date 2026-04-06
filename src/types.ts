@@ -106,7 +106,7 @@ declare global {
       syncGetSyncLog: (profileId?: string) => Promise<SyncLogEntry[]>;
       syncDeleteBackup: (remoteFileRef: string, provider?: 'googledrive' | 's3') => Promise<{ success: boolean; error?: string }>;
       syncBackupAllListToCloud: () => Promise<{ success: boolean; error?: string }>;
-      syncRestoreAllListFromCloud: () => Promise<{ success: boolean; count?: number; error?: string }>;
+      syncRestoreAllListFromCloud: (passphrase?: string) => Promise<{ success: boolean; count?: number; error?: string }>;
       syncRestoreAll: () => Promise<{ success: boolean; count?: number; failed?: number; error?: string }>;
       onSyncProgress: (callback: (progress: { profileId: string; message: string; percent?: number }) => void) => void;
       onSyncAllComplete: (callback: (result: { total: number; success: number; failed: number; errors: { profileId: string; name: string; error: string }[] }) => void) => void;

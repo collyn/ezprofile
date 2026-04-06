@@ -184,7 +184,7 @@ const electronAPI = {
   syncGetSyncLog: (profileId?: string): Promise<any[]> => ipcRenderer.invoke('sync:getSyncLog', profileId),
   syncDeleteBackup: (remoteFileRef: string, provider?: 'googledrive' | 's3'): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:deleteBackup', remoteFileRef, provider),
   syncBackupAllListToCloud: (): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:backupAllListToCloud'),
-  syncRestoreAllListFromCloud: (): Promise<{ success: boolean; count?: number; error?: string }> => ipcRenderer.invoke('sync:restoreAllListFromCloud'),
+  syncRestoreAllListFromCloud: (passphrase?: string): Promise<{ success: boolean; count?: number; error?: string }> => ipcRenderer.invoke('sync:restoreAllListFromCloud', passphrase),
   syncRestoreAll: (): Promise<{ success: boolean; count?: number; failed?: number; error?: string }> => ipcRenderer.invoke('sync:restoreAll'),
 
   // Sync events

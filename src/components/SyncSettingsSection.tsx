@@ -298,7 +298,25 @@ export default function SyncSettingsSection() {
 
     setRestoringList(true); setSyncingAll(true); setSyncAllResult(null); setSyncProgress('Restoring profile list...');
     
-    const listRes = await api.syncRestoreAllListFromCloud();
+    let listRes = await api.syncRestoreAllListFromCloud();
+    
+    // If key mismatch (different machine), prompt for passphrase and retry
+    if (!listRes.success && listRes.error === 'PASSPHRASE_REQUIRED') {
+      const enteredPassphrase = await dialog.prompt(
+        t('cloudSync.crossMachinePassphraseTitle', 'Passphrase Required'),
+        t('cloudSync.crossMachinePassphraseDesc', 'The cloud backup was created on a different machine. Please enter your encryption passphrase to decrypt it.'),
+        { type: 'password', placeholder: t('cloudSync.encryptionPlaceholder', 'Encryption passphrase...') }
+      );
+      
+      if (!enteredPassphrase) {
+        setRestoringList(false); setSyncingAll(false);
+        return;
+      }
+      
+      setSyncProgress('Decrypting with passphrase...');
+      listRes = await api.syncRestoreAllListFromCloud(enteredPassphrase);
+    }
+
     if (!listRes.success) {
       await dialog.alert(`Failed to restore profile list: ${listRes.error}`);
       setRestoringList(false); setSyncingAll(false);

@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, ReactNode } from 'react';
 import { XIcon } from '../components/Icons';
 
-type DialogType = 'alert' | 'confirm';
+type DialogType = 'alert' | 'confirm' | 'prompt';
 
 interface DialogOptions {
   type: DialogType;
@@ -9,13 +9,16 @@ interface DialogOptions {
   message: string | ReactNode;
   confirmText?: string;
   cancelText?: string;
-  onConfirm: () => void;
+  inputType?: string;
+  inputPlaceholder?: string;
+  onConfirm: (value?: string) => void;
   onCancel: () => void;
 }
 
 interface DialogContextValue {
   alert: (message: string | ReactNode, title?: string) => Promise<void>;
   confirm: (message: string | ReactNode, title?: string, confirmText?: string) => Promise<boolean>;
+  prompt: (title: string, message: string | ReactNode, options?: { type?: string; placeholder?: string; confirmText?: string }) => Promise<string | null>;
 }
 
 const DialogContext = createContext<DialogContextValue | undefined>(undefined);
@@ -30,6 +33,7 @@ export function useDialog() {
 
 export function DialogProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<DialogOptions | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const alert = (message: string | ReactNode, title: string = 'Alert') => {
     return new Promise<void>((resolve) => {
@@ -70,8 +74,37 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const prompt = (title: string, message: string | ReactNode, options?: { type?: string; placeholder?: string; confirmText?: string }) => {
+    return new Promise<string | null>((resolve) => {
+      setDialog({
+        type: 'prompt',
+        title,
+        message,
+        confirmText: options?.confirmText || 'OK',
+        cancelText: 'Cancel',
+        inputType: options?.type || 'text',
+        inputPlaceholder: options?.placeholder || '',
+        onConfirm: (value?: string) => {
+          setDialog(null);
+          resolve(value || null);
+        },
+        onCancel: () => {
+          setDialog(null);
+          resolve(null);
+        }
+      });
+    });
+  };
+
+  const handlePromptSubmit = () => {
+    const value = inputRef.current?.value || '';
+    if (value.trim()) {
+      dialog?.onConfirm(value);
+    }
+  };
+
   return (
-    <DialogContext.Provider value={{ alert, confirm }}>
+    <DialogContext.Provider value={{ alert, confirm, prompt }}>
       {children}
       
       {dialog && (
@@ -102,21 +135,31 @@ export function DialogProvider({ children }: { children: ReactNode }) {
             
             <div style={{ padding: '20px', fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
               {dialog.message}
+              {dialog.type === 'prompt' && (
+                <input
+                  ref={inputRef}
+                  type={dialog.inputType || 'text'}
+                  placeholder={dialog.inputPlaceholder}
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
+                  style={{ width: '100%', marginTop: 12, padding: '10px 12px', fontSize: 13 }}
+                />
+              )}
             </div>
 
             <div style={{ 
               padding: '16px 20px', borderTop: '1px solid var(--border-color)', 
               display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'rgba(0,0,0,0.02)'
             }}>
-              {dialog.type === 'confirm' && (
+              {(dialog.type === 'confirm' || dialog.type === 'prompt') && (
                 <button className="btn btn-sm btn-outline" onClick={dialog.onCancel}>
                   {dialog.cancelText}
                 </button>
               )}
               <button 
                 className={`btn btn-sm ${dialog.type === 'confirm' ? 'btn-danger' : 'btn-primary'}`} 
-                onClick={dialog.onConfirm}
-                autoFocus
+                onClick={dialog.type === 'prompt' ? handlePromptSubmit : () => dialog.onConfirm()}
+                autoFocus={dialog.type !== 'prompt'}
                 style={dialog.type === 'alert' ? { minWidth: 80 } : undefined}
               >
                 {dialog.confirmText}
