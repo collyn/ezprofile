@@ -107,6 +107,10 @@ export default function SyncSettingsSection() {
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncAllResult, setSyncAllResult] = useState<{ total: number; success: number; failed: number } | null>(null);
   const [syncProgress, setSyncProgress] = useState('');
+  
+  // List Sync states
+  const [backingUpList, setBackingUpList] = useState(false);
+  const [restoringList, setRestoringList] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -270,6 +274,50 @@ export default function SyncSettingsSection() {
     await api.syncUploadAll();
   };
 
+  const handleBackupAllProfiles = async () => {
+    if (!settings?.hasPassphrase) { await dialog.alert(t('cloudSync.encryptionRequired')); return; }
+    setBackingUpList(true); setSyncingAll(true); setSyncAllResult(null); setSyncProgress('Backing up profile list...');
+    
+    const listRes = await api.syncBackupAllListToCloud();
+    if (!listRes.success) {
+      await dialog.alert(`Failed to backup profile list: ${listRes.error}`);
+      setBackingUpList(false); setSyncingAll(false);
+      return;
+    }
+    
+    setSyncProgress('Backing up profile data...');
+    setBackingUpList(false);
+    await api.syncUploadAll();
+  };
+
+  const handleRestoreAllProfiles = async () => {
+    if (!settings?.hasPassphrase) { await dialog.alert(t('cloudSync.encryptionRequired')); return; }
+    
+    const confirm = await dialog.confirm('This will restore all profiles from the cloud, potentially overwriting local data. Continue?');
+    if (!confirm) return;
+
+    setRestoringList(true); setSyncingAll(true); setSyncAllResult(null); setSyncProgress('Restoring profile list...');
+    
+    const listRes = await api.syncRestoreAllListFromCloud();
+    if (!listRes.success) {
+      await dialog.alert(`Failed to restore profile list: ${listRes.error}`);
+      setRestoringList(false); setSyncingAll(false);
+      return;
+    }
+
+    setSyncProgress(`Profile list restored (${listRes.count} profiles). Now recovering profile data...`);
+    setRestoringList(false);
+    
+    const restoreRes = await api.syncRestoreAll();
+    setSyncingAll(false);
+    
+    if (restoreRes.success) {
+      setSyncAllResult({ total: restoreRes.count! + restoreRes.failed!, success: restoreRes.count!, failed: restoreRes.failed! });
+    } else {
+      await dialog.alert(`Failed to restore profile data: ${restoreRes.error}`);
+    }
+  };
+
   if (loading) return null;
 
   const isGdriveConnected = settings?.gdrive?.connected;
@@ -324,8 +372,7 @@ export default function SyncSettingsSection() {
                   {t('cloudSync.gdriveFolderNote')}
                 </div>
               </div>
-              <button className="btn btn-sm" onClick={handleDisconnectGoogle}
-                style={{ color: '#ea4335', borderColor: '#ea4335', fontSize: 11 }}>
+              <button className="btn btn-sm btn-ghost-danger" onClick={handleDisconnectGoogle}>
                 Disconnect
               </button>
             </div>
@@ -384,10 +431,6 @@ export default function SyncSettingsSection() {
                 className="btn btn-primary btn-sm"
                 onClick={handleConnectGoogle}
                 disabled={connectingGdrive || !canConnect}
-                style={{
-                  background: canConnect ? 'linear-gradient(135deg, #4285f4, #34a853)' : undefined,
-                  border: 'none', display: 'flex', alignItems: 'center', gap: 6,
-                }}
                 title={!canConnect ? t('cloudSync.connectGoogleTooltip') : ''}
               >
                 {connectingGdrive ? <SpinnerIcon /> : <GDriveIcon size={14} />}
@@ -564,12 +607,10 @@ export default function SyncSettingsSection() {
               {/* Action buttons */}
               {!showChangeForm && (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-sm" onClick={() => { setShowChangeForm(true); setChangeError(''); }}
-                    style={{ fontSize: 11 }}>
+                  <button className="btn btn-sm" onClick={() => { setShowChangeForm(true); setChangeError(''); }}>
                     {t('cloudSync.encryptionChange')}
                   </button>
-                  <button className="btn btn-sm" onClick={handleClearPassphrase}
-                    style={{ fontSize: 11, color: '#ea4335', borderColor: 'rgba(234,67,53,0.3)' }}>
+                  <button className="btn btn-sm btn-ghost-danger" onClick={handleClearPassphrase}>
                     {t('cloudSync.encryptionClear')}
                   </button>
                   {passphraseSaved && <span style={{ fontSize: 11, color: '#34a853' }}>{t('cloudSync.encryptionDone')}</span>}
@@ -608,12 +649,11 @@ export default function SyncSettingsSection() {
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <button className="btn btn-sm btn-primary" onClick={handleChangePassphrase}
-                      disabled={!changeOldPass || !changeNewPass || changingPass}
-                      style={{ background: 'linear-gradient(135deg, #4285f4, #0f9d58)', border: 'none', fontSize: 11 }}>
+                      disabled={!changeOldPass || !changeNewPass || changingPass}>
                       {changingPass ? t('cloudSync.encryptionChanging') : t('cloudSync.encryptionConfirmChange')}
                     </button>
                     <button className="btn btn-sm btn-outline" onClick={() => { setShowChangeForm(false); setChangeError(''); }}
-                      disabled={changingPass} style={{ fontSize: 11 }}>
+                      disabled={changingPass}>
                       {t('cloudSync.encryptionCancelChange')}
                     </button>
                   </div>
@@ -630,8 +670,7 @@ export default function SyncSettingsSection() {
                 placeholder={t('cloudSync.encryptionHintPlaceholder')} style={{ fontSize: 11 }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button className="btn btn-sm btn-primary" onClick={handleSetPassphrase}
-                  disabled={!passphrase || savingPassphrase}
-                  style={{ background: 'linear-gradient(135deg, #4285f4, #0f9d58)', border: 'none' }}>
+                  disabled={!passphrase || savingPassphrase}>
                   {savingPassphrase ? t('cloudSync.encryptionSetting') : t('cloudSync.encryptionSet')}
                 </button>
                 {passphraseSaved && <span style={{ fontSize: 11, color: '#34a853' }}>{t('cloudSync.encryptionDone')}</span>}
@@ -700,11 +739,20 @@ export default function SyncSettingsSection() {
           <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12, color: 'var(--text-primary)' }}>
             {t('cloudSync.quickActionsTitle')}
           </div>
-          <button className="btn btn-sm btn-primary" onClick={handleSyncAll} disabled={syncingAll}
-            style={{ background: 'linear-gradient(135deg, #4285f4, #34a853)', border: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {syncingAll ? <SpinnerIcon /> : <UploadIcon size={13} />}
-            {syncingAll ? t('cloudSync.syncingAll') : t('cloudSync.syncAllNow')}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-sm btn-primary" onClick={handleSyncAll} disabled={syncingAll || backingUpList || restoringList}>
+              {syncingAll && !backingUpList && !restoringList ? <SpinnerIcon /> : <UploadIcon size={13} />}
+              {syncingAll && !backingUpList && !restoringList ? t('cloudSync.syncingAll') : t('cloudSync.syncAllNow')}
+            </button>
+            <button className="btn btn-sm" onClick={handleBackupAllProfiles} disabled={syncingAll || backingUpList || restoringList}>
+              {backingUpList ? <SpinnerIcon /> : <CloudIcon size={13} />}
+              {t('cloudSync.backupAllProfiles', 'Backup All Profiles')}
+            </button>
+            <button className="btn btn-sm" onClick={handleRestoreAllProfiles} disabled={syncingAll || backingUpList || restoringList}>
+              {restoringList ? <SpinnerIcon /> : <CloudIcon size={13} />}
+              {t('cloudSync.restoreAllProfiles', 'Restore All from Cloud')}
+            </button>
+          </div>
 
           {syncingAll && syncProgress && (
             <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 6, background: 'rgba(66,133,244,0.08)', border: '1px solid rgba(66,133,244,0.2)', fontSize: 12, color: '#4285f4', display: 'flex', alignItems: 'center', gap: 6 }}>

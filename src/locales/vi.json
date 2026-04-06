@@ -152,6 +152,19 @@
         "selectMulti": "Chọn nhiều profile",
         "contextMenu": "Mở menu ngữ cảnh",
         "close": "Đóng modal / bỏ chọn"
+      },
+      "backup": {
+        "title": "Sao lưu & Khôi phục Cài đặt",
+        "desc": "Sao lưu cài đặt cục bộ, cấu hình Cloud Sync và các khóa mã hóa của bạn. Yêu cầu nhập mật khẩu bảo vệ.",
+        "passwordPlaceholder": "Mật khẩu mã hoá...",
+        "requirePassword": "Vui lòng nhập mật khẩu để mã hoá/giải mã file backup!",
+        "exportBtn": "Xuất Cài Đặt",
+        "importBtn": "Nhập Cài Đặt",
+        "exportSuccess": "Đã xuất cài đặt thành công!",
+        "exportError": "Xuất cài đặt thất bại: ",
+        "importConfirm": "Việc nhập cài đặt sẽ ghi đè lên các cấu hình và khóa tự động hiện tại của bạn. EzProfile có thể sẽ cần khởi động lại. Bạn có chắc chắn muốn tiếp tục?",
+        "importSuccess": "Đã nhập cài đặt thành công!",
+        "importError": "Nhập cài đặt thất bại: "
       }
     },
     "groupManager": {
@@ -423,6 +436,8 @@
       "every24h": "Mỗi 24 giờ",
       "quickActionsTitle": "Thao tác nhanh",
       "syncAllNow": "Đồng bộ tất cả Profile ngay",
+      "backupAllProfiles": "Sao lưu toàn bộ Profile",
+      "restoreAllProfiles": "Phục hồi tất cả từ Cloud",
       "syncingAll": "Đang đồng bộ...",
       "syncResultSuccess": "Đã đồng bộ thành công tất cả {{total}} profile",
       "syncResultPartial": "{{success}}/{{total}} thành công, {{failed}} thất bại",

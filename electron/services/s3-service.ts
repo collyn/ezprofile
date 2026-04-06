@@ -163,8 +163,33 @@ export class S3Service {
     const dest = fs.createWriteStream(localPath);
     await new Promise<void>((resolve, reject) => {
       body.pipe(dest);
-      body.on('error', reject);
-      dest.on('finish', resolve);
+    });
+  }
+
+  async uploadBuffer(buffer: Buffer, s3Key: string): Promise<void> {
+    this.assertConfigured();
+    await this.client!.send(
+      new PutObjectCommand({
+        Bucket: this.config!.bucket,
+        Key: s3Key,
+        Body: buffer,
+        ContentType: 'application/octet-stream',
+      })
+    );
+  }
+
+  async downloadBuffer(s3Key: string): Promise<Buffer> {
+    this.assertConfigured();
+    const response = await this.client!.send(
+      new GetObjectCommand({ Bucket: this.config!.bucket, Key: s3Key })
+    );
+
+    const stream = response.Body as Readable;
+    return new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+      stream.on('error', (err) => reject(err));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
     });
   }
 

@@ -408,6 +408,77 @@ export class GDriveService {
     });
   }
 
+  async uploadBuffer(buffer: Buffer, remoteFileName: string): Promise<string> {
+    const token = await this.ensureValidToken();
+    const folderId = await this.getOrCreateSyncFolder();
+    
+    try {
+      const searchRes = await driveRequest('GET', `${GOOGLE_DRIVE_API}/files`, token, {
+        q: `'${folderId}' in parents and name='${remoteFileName}' and trashed=false`
+      });
+      if (searchRes.files && searchRes.files.length > 0) {
+        for (const f of searchRes.files) {
+          await this.deleteBackup(f.id);
+        }
+      }
+    } catch (e) {
+      console.warn(`[GDrive] Failed to check for existing file ${remoteFileName}:`, e);
+    }
+
+    const { default: fetch } = await import('node-fetch');
+
+    const boundary = '-------ezprofile_boundary';
+    const metadata = JSON.stringify({ name: remoteFileName, parents: [folderId] });
+
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`),
+      Buffer.from(metadata),
+      Buffer.from(`\r\n--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`),
+      buffer,
+      Buffer.from(`\r\n--${boundary}--`),
+    ]);
+
+    const res = await fetch(`${GOOGLE_UPLOAD_API}/files?uploadType=multipart&fields=id`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary="${boundary}"`,
+        'Content-Length': String(body.length),
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Drive upload failed: ${err}`);
+    }
+
+    const json: any = await res.json();
+    return json.id;
+  }
+
+  async downloadBufferByFileName(fileName: string): Promise<Buffer | null> {
+    const token = await this.ensureValidToken();
+    const folderId = await this.getOrCreateSyncFolder();
+    
+    const searchRes = await driveRequest('GET', `${GOOGLE_DRIVE_API}/files`, token, {
+       q: `'${folderId}' in parents and name='${fileName}' and trashed=false`
+    });
+    if (!searchRes.files || searchRes.files.length === 0) return null;
+    
+    const fileId = searchRes.files[0].id;
+    const { default: fetch } = await import('node-fetch');
+
+    const res = await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) throw new Error(`Drive download failed: ${res.status}`);
+
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
   async listBackups(profileId?: string): Promise<GDriveBackupEntry[]> {
     const token = await this.ensureValidToken();
     const folderId = await this.getOrCreateSyncFolder();

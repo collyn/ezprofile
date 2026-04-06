@@ -152,6 +152,19 @@
         "selectMulti": "Select multiple profiles",
         "contextMenu": "Open context menu",
         "close": "Close modal / deselect"
+      },
+      "backup": {
+        "title": "Backup & Restore Settings",
+        "desc": "Backup your local settings, Sync provider configurations, and encryption keys. You must provide a password.",
+        "passwordPlaceholder": "Encryption Password...",
+        "requirePassword": "Please enter a password before importing/exporting!",
+        "exportBtn": "Export Settings",
+        "importBtn": "Import Settings",
+        "exportSuccess": "Settings exported successfully!",
+        "exportError": "Failed to export settings: ",
+        "importConfirm": "Importing settings will overwrite your current configurations and keys. EzProfile may need a restart. Do you want to proceed?",
+        "importSuccess": "Settings imported successfully!",
+        "importError": "Failed to import settings: "
       }
     },
     "groupManager": {
@@ -423,6 +436,8 @@
       "every24h": "Every 24 hours",
       "quickActionsTitle": "Quick Actions",
       "syncAllNow": "Sync All Profiles Now",
+      "backupAllProfiles": "Backup All Profiles",
+      "restoreAllProfiles": "Restore All from Cloud",
       "syncingAll": "Syncing...",
       "syncResultSuccess": "All {{total}} profiles synced successfully",
       "syncResultPartial": "{{success}}/{{total}} succeeded, {{failed}} failed",

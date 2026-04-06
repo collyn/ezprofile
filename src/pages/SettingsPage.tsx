@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useDialog } from '../contexts/DialogContext';
 import { getAPI } from '../api';
 import SyncSettingsSection from '../components/SyncSettingsSection';
 import { ArrowLeftIcon, CheckIcon, ChromeIcon, ResetIcon, FolderIcon, InfoIcon, SpinnerIcon, DownloadIcon, ArrowDownIcon, SparklesIcon, KeyboardIcon } from '../components/Icons';
@@ -14,6 +15,7 @@ type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' 
 
 export default function SettingsPage({ onBack }: SettingsPageProps) {
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [chromePath, setChromePath] = useState('');
   const [profilesDir, setProfilesDir] = useState('');
   const [appVersion, setAppVersion] = useState('');
@@ -26,6 +28,10 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [downloadPercent, setDownloadPercent] = useState(0);
   const [updateError, setUpdateError] = useState('');
   const [isMac, setIsMac] = useState(false);
+  const [isExportingSettings, setIsExportingSettings] = useState(false);
+  const [isImportingSettings, setIsImportingSettings] = useState(false);
+  const [settingsPassword, setSettingsPassword] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -135,6 +141,55 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const handleExportSettings = async () => {
+    if (!settingsPassword) {
+      setPasswordError(true);
+      dialog.alert(t('settings.backup.requirePassword', 'Please enter a password to encrypt your settings Backup!'));
+      return;
+    }
+    setPasswordError(false);
+    setIsExportingSettings(true);
+    const res = await api.settingsExportBackup(settingsPassword);
+    if (res.success && !res.canceled) {
+      dialog.alert(t('settings.backup.exportSuccess', 'Settings exported successfully!'));
+      setSettingsPassword('');
+    } else if (res.error) {
+      dialog.alert(t('settings.backup.exportError', 'Export failed: ') + res.error);
+    }
+    setIsExportingSettings(false);
+  };
+
+  const handleImportSettings = async () => {
+    if (!settingsPassword) {
+      setPasswordError(true);
+      dialog.alert(t('settings.backup.requirePassword', 'Please enter a password to decrypt your settings Backup!'));
+      return;
+    }
+    setPasswordError(false);
+    
+    const confirmed = await dialog.confirm(
+      t('settings.backup.importConfirm', 'Importing settings will overwrite your current configurations. Do you want to proceed?')
+    );
+    if (!confirmed) return;
+    
+    setIsImportingSettings(true);
+    const res = await api.settingsImportBackup(settingsPassword);
+    if (res.success && !res.canceled) {
+      dialog.alert(t('settings.backup.importSuccess', 'Settings imported successfully!'));
+      setSettingsPassword('');
+      // Reload settings to reflect changes
+      const [path, dir] = await Promise.all([
+        api.getChromePath(),
+        api.getProfilesDir()
+      ]);
+      setChromePath(path || '');
+      setProfilesDir(dir || '');
+    } else if (res.error) {
+      dialog.alert(t('settings.backup.importError', 'Import failed: ') + res.error);
+    }
+    setIsImportingSettings(false);
+  };
+
   if (loading) {
     return (
       <div style={{ padding: 24, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -239,6 +294,45 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       {/* Cloud Sync */}
       <SyncSettingsSection />
 
+      {/* Settings Backup */}
+      <section style={{ marginBottom: 28 }}>
+        <div style={{
+          fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+          marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <FolderIcon size={16} />
+          {t('settings.backup.title', 'Backup & Restore Settings')}
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, marginTop: 0 }}>
+          {t('settings.backup.desc', 'Backup your local settings, Sync provider configurations, and encryption keys. You must provide a password.')}
+        </p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="password"
+            value={settingsPassword}
+            onChange={(e) => {
+              setSettingsPassword(e.target.value);
+              if (passwordError && e.target.value) setPasswordError(false);
+            }}
+            placeholder={t('settings.backup.passwordPlaceholder', 'Encryption Password...')}
+            disabled={isExportingSettings || isImportingSettings}
+            style={{ 
+              width: 180, 
+              borderColor: passwordError ? '#ea4335' : undefined,
+              boxShadow: passwordError ? '0 0 0 1px #ea4335' : undefined
+            }}
+          />
+          <button className="btn btn-sm btn-primary" onClick={handleExportSettings} disabled={isExportingSettings || isImportingSettings}>
+            {isExportingSettings ? <SpinnerIcon size={14} /> : <DownloadIcon size={14} />}
+            {t('settings.backup.exportBtn', 'Export Settings')}
+          </button>
+          <button className="btn btn-sm" onClick={handleImportSettings} disabled={isExportingSettings || isImportingSettings}>
+            {isImportingSettings ? <SpinnerIcon size={14} /> : <FolderIcon size={14} />}
+            {t('settings.backup.importBtn', 'Import Settings')}
+          </button>
+        </div>
+      </section>
+
       {/* App Info */}
       <section style={{ marginBottom: 28 }}>
         <div style={{
@@ -292,10 +386,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     <ArrowDownIcon size={14} />
                     {t('settings.appInfo.updateAvailable', { version: newVersion })}
                   </div>
-                  <button className="btn btn-primary btn-sm" onClick={handleDownloadUpdate} style={{
-                    background: 'linear-gradient(135deg, #4285f4, #34a853)',
-                    border: 'none', fontWeight: 600,
-                  }}>
+                  <button className="btn btn-primary btn-sm" onClick={handleDownloadUpdate}>
                     <DownloadIcon size={12} strokeWidth={2.5} style={{ marginRight: 4 }} />
                     {isMac ? t('settings.appInfo.openDownloadPage') : t('settings.appInfo.downloadUpdate')}
                   </button>
@@ -331,10 +422,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     <CheckIcon size={14} />
                     {t('settings.appInfo.downloadReady', { version: newVersion })}
                   </div>
-                  <button className="btn btn-primary btn-sm" onClick={handleInstallUpdate} style={{
-                    background: 'linear-gradient(135deg, #34a853, #0f9d58)',
-                    border: 'none', fontWeight: 600,
-                  }}>
+                  <button className="btn btn-primary btn-sm" onClick={handleInstallUpdate}>
                     <SparklesIcon size={12} strokeWidth={2.5} style={{ marginRight: 4 }} />
                     {t('settings.appInfo.installUpdate')}
                   </button>

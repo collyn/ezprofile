@@ -48,6 +48,8 @@ declare global {
       getProfilesDir: () => Promise<string>;
       setProfilesDir: (dir: string) => Promise<void>;
       selectProfilesDir: () => Promise<string | null>;
+      settingsExportBackup: (password: string) => Promise<{ success: boolean, canceled?: boolean, error?: string }>;
+      settingsImportBackup: (password: string) => Promise<{ success: boolean, canceled?: boolean, error?: string }>;
 
       // Browser version management
       getAvailableBrowserVersions: () => Promise<ChromeVersionInfo[]>;
@@ -103,6 +105,9 @@ declare global {
       syncSetMaxBackups: (maxLimit: number) => Promise<{ success: boolean; error?: string }>;
       syncGetSyncLog: (profileId?: string) => Promise<SyncLogEntry[]>;
       syncDeleteBackup: (remoteFileRef: string, provider?: 'googledrive' | 's3') => Promise<{ success: boolean; error?: string }>;
+      syncBackupAllListToCloud: () => Promise<{ success: boolean; error?: string }>;
+      syncRestoreAllListFromCloud: () => Promise<{ success: boolean; count?: number; error?: string }>;
+      syncRestoreAll: () => Promise<{ success: boolean; count?: number; failed?: number; error?: string }>;
       onSyncProgress: (callback: (progress: { profileId: string; message: string; percent?: number }) => void) => void;
       onSyncAllComplete: (callback: (result: { total: number; success: number; failed: number; errors: { profileId: string; name: string; error: string }[] }) => void) => void;
     };

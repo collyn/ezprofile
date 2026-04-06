@@ -11,6 +11,7 @@ import { S3Service } from './services/s3-service';
 import { SyncScheduler } from './services/sync-scheduler';
 import { exportData, importData } from './utils/import-export';
 import { autoUpdater } from 'electron-updater';
+import * as fs from 'fs';
 
 export function registerIpcHandlers(
   ipcMain: IpcMain,
@@ -119,7 +120,7 @@ export function registerIpcHandlers(
       const profiles = (ids && ids.length > 0) ? profileManager.getMany(ids) : profileManager.getAll();
       const exportItems = profiles.map(p => {
         // Exclude internal fields like user_data_dir, status, last_run_at unless useful
-        const { id, user_data_dir, status, last_run_at, created_at, updated_at, ...cleanProfile } = p as any;
+        const { user_data_dir, status, last_run_at, created_at, updated_at, password_hash, ...cleanProfile } = p as any;
         return cleanProfile;
       });
 
@@ -148,7 +149,7 @@ export function registerIpcHandlers(
         throw new Error('File does not contain valid data');
       }
 
-      const profilesCreated = profileManager.createMany(records as any);
+      const profilesCreated = profileManager.importMany(records as any);
       return { success: true, count: profilesCreated.length };
     } catch (err: any) {
       console.error(err);
@@ -829,6 +830,97 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle('sync:backupAllListToCloud', async () => {
+    if (!syncScheduler || !encryptionSvc) return { success: false, error: 'Sync not initialized' };
+    const provider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+    if (!provider) return { success: false, error: 'No sync provider configured' };
+    const key = syncScheduler.getPassphraseKey();
+    if (!key) return { success: false, error: 'Sync passphrase not set' };
+
+    try {
+      const profiles = profileManager.getAll();
+      const exportItems = profiles.map(p => {
+        const { user_data_dir, status, last_run_at, created_at, updated_at, password_hash, ...cleanProfile } = p as any;
+        return cleanProfile;
+      });
+
+      const jsonStr = JSON.stringify(exportItems);
+      const payload = encryptionSvc.encrypt(Buffer.from(jsonStr, 'utf-8'), key);
+      const buffer = encryptionSvc.serializePayload(payload);
+
+      if (provider === 'googledrive' && gdriveService) {
+        await gdriveService.uploadBuffer(buffer, 'profiles_list.json.enc');
+      } else if (provider === 's3' && s3Service) {
+        const prefix = profileManager.getSetting('s3_prefix') || 'ezprofile/';
+        await s3Service.uploadBuffer(buffer, `${prefix}profiles_list.json.enc`);
+      } else {
+         return { success: false, error: 'Service not found' };
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('sync:restoreAllListFromCloud', async () => {
+    if (!syncScheduler || !encryptionSvc) return { success: false, error: 'Sync not initialized' };
+    const provider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+    if (!provider) return { success: false, error: 'No sync provider configured' };
+    const key = syncScheduler.getPassphraseKey();
+    if (!key) return { success: false, error: 'Sync passphrase not set' };
+
+    try {
+      let buffer: Buffer | null = null;
+      if (provider === 'googledrive' && gdriveService) {
+        buffer = await gdriveService.downloadBufferByFileName('profiles_list.json.enc');
+      } else if (provider === 's3' && s3Service) {
+        const prefix = profileManager.getSetting('s3_prefix') || 'ezprofile/';
+        buffer = await s3Service.downloadBuffer(`${prefix}profiles_list.json.enc`).catch(() => null);
+      }
+
+      if (!buffer) return { success: false, error: 'Profile list not found on cloud' };
+
+      const payload = encryptionSvc.deserializePayload(buffer);
+      const jsonStr = encryptionSvc.decrypt(payload, key).toString('utf-8');
+      const records = JSON.parse(jsonStr);
+
+      const profilesImported = profileManager.importMany(records as any);
+      return { success: true, count: profilesImported.length };
+    } catch (e: any) {
+       return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('sync:restoreAll', async () => {
+    if (!syncScheduler || !encryptionSvc || !backupManager) return { success: false, error: 'Sync not initialized' };
+    const provider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+    if (!provider) return { success: false, error: 'No sync provider configured' };
+    const key = syncScheduler.getPassphraseKey();
+    if (!key) return { success: false, error: 'Sync passphrase not set' };
+
+    try {
+      const profiles = profileManager.getAll();
+      let successCount = 0;
+      let failCount = 0;
+      for (const p of profiles) {
+        try {
+          const backups = await backupManager.listCloudBackups(p.id, provider);
+          if (backups && backups.length > 0) {
+             const latest = backups[0];
+             await syncScheduler.restoreOne(p.id, latest.id, provider);
+             successCount++;
+          }
+        } catch (e) {
+          failCount++;
+        }
+      }
+      return { success: true, count: successCount, failed: failCount };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('sync:setAutoSyncOnClose', (_event, enabled: boolean) => {
     profileManager.setSetting('sync_auto_sync_on_close', enabled ? 'true' : 'false');
     return { success: true };
@@ -848,6 +940,150 @@ export function registerIpcHandlers(
     if (!provider || !backupManager) return { success: false, error: 'Not configured' };
     try {
       await backupManager.deleteCloudBackup(remoteFileRef, provider);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Settings Backup & Restore
+  ipcMain.handle('settings:exportBackup', async (_event, password?: string) => {
+    try {
+      if (!encryptionSvc) throw new Error('Encryption service not initialized');
+      if (!password) throw new Error('Password is required for export');
+      
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        title: 'Export Settings Backup',
+        defaultPath: 'ezprofile_settings_backup.enc',
+        filters: [{ name: 'Encrypted JSON', extensions: ['enc'] }, { name: 'All Files', extensions: ['*'] }]
+      });
+
+      if (canceled || !filePath) return { success: true, canceled: true };
+
+      const settings = profileManager.getAllSettings();
+      const keysToDecrypt = [
+        's3_secret_access_key',
+        'gdrive_client_secret_enc',
+        'gdrive_token_json',
+        'sync_encrypted_key'
+      ];
+
+      for (const key of keysToDecrypt) {
+        if (settings[key]) {
+          try {
+            settings[key] = encryptionSvc.decryptString(settings[key]);
+          } catch (e) {
+            console.warn(`Failed to decrypt ${key} during settings export`);
+          }
+        }
+      }
+
+      // Include proxy list in the backup
+      const proxies = profileManager.getProxies();
+      (settings as any).__proxies__ = proxies;
+
+      const settingsJson = JSON.stringify(settings);
+      
+      const salt = encryptionSvc.generateSalt();
+      const derivedKey = await encryptionSvc.deriveKey(password, salt);
+      const payload = encryptionSvc.encrypt(Buffer.from(settingsJson, 'utf-8'), derivedKey);
+      
+      const backupData = {
+        salt: salt.toString('hex'),
+        iv: payload.iv.toString('hex'),
+        tag: payload.tag.toString('hex'),
+        ciphertext: payload.ciphertext.toString('hex')
+      };
+
+      fs.writeFileSync(filePath, JSON.stringify(backupData, null, 2), 'utf-8');
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('settings:importBackup', async (_event, password?: string) => {
+    try {
+      if (!encryptionSvc) throw new Error('Encryption service not initialized');
+      if (!password) throw new Error('Password is required for import');
+
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: 'Import Settings Backup',
+        filters: [{ name: 'Encrypted JSON', extensions: ['enc'] }, { name: 'All Files', extensions: ['*'] }],
+        properties: ['openFile']
+      });
+
+      if (canceled || filePaths.length === 0) return { success: true, canceled: true };
+
+      const content = fs.readFileSync(filePaths[0], 'utf-8');
+      const backupData = JSON.parse(content);
+
+      if (!backupData.salt || !backupData.iv || !backupData.tag || !backupData.ciphertext) {
+         throw new Error('Invalid backup file format');
+      }
+
+      const saltBuffer = Buffer.from(backupData.salt, 'hex');
+      const derivedKey = await encryptionSvc.deriveKey(password, saltBuffer);
+
+      let decryptedJson = '';
+      try {
+        const decryptedBuffer = encryptionSvc.decrypt({
+           iv: Buffer.from(backupData.iv, 'hex'),
+           tag: Buffer.from(backupData.tag, 'hex'),
+           ciphertext: Buffer.from(backupData.ciphertext, 'hex')
+        }, derivedKey);
+        decryptedJson = decryptedBuffer.toString('utf-8');
+      } catch (decryptErr) {
+        throw new Error('Incorrect password or corrupted backup file');
+      }
+
+      const settings = JSON.parse(decryptedJson) as Record<string, any>;
+
+      // Extract proxy list before processing settings
+      const proxies = settings.__proxies__;
+      delete settings.__proxies__;
+
+      const keysToEncrypt = [
+        's3_secret_access_key',
+        'gdrive_client_secret_enc',
+        'gdrive_token_json',
+        'sync_encrypted_key'
+      ];
+
+      for (const key of keysToEncrypt) {
+        if (settings[key]) {
+           settings[key] = encryptionSvc.encryptString(settings[key]);
+        }
+      }
+
+      for (const [key, value] of Object.entries(settings)) {
+        if (value !== null && value !== undefined) {
+          profileManager.setSetting(key, String(value));
+        }
+      }
+
+      // Restore proxy list if present in backup
+      if (Array.isArray(proxies) && proxies.length > 0) {
+        // Get existing proxies to merge (skip duplicates by host:port)
+        const existingProxies = profileManager.getProxies();
+        const existingKeys = new Set(existingProxies.map((p: any) => `${p.host}:${p.port}`));
+
+        for (const proxy of proxies) {
+          const key = `${proxy.host}:${proxy.port}`;
+          if (!existingKeys.has(key)) {
+            profileManager.createProxy({
+              name: proxy.name,
+              type: proxy.type,
+              host: proxy.host,
+              port: proxy.port,
+              username: proxy.username || undefined,
+              password: proxy.password || undefined,
+            });
+            existingKeys.add(key);
+          }
+        }
+      }
+
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };

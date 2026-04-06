@@ -89,6 +89,8 @@ const electronAPI = {
   getProfilesDir: (): Promise<string> => ipcRenderer.invoke('settings:getProfilesDir'),
   setProfilesDir: (dir: string): Promise<void> => ipcRenderer.invoke('settings:setProfilesDir', dir),
   selectProfilesDir: (): Promise<string | null> => ipcRenderer.invoke('settings:selectProfilesDir'),
+  settingsExportBackup: (password: string): Promise<{ success: boolean, canceled?: boolean, error?: string }> => ipcRenderer.invoke('settings:exportBackup', password),
+  settingsImportBackup: (password: string): Promise<{ success: boolean, canceled?: boolean, error?: string }> => ipcRenderer.invoke('settings:importBackup', password),
 
   // Browser version management
   getAvailableBrowserVersions: () => ipcRenderer.invoke('browser:getAvailable'),
@@ -181,6 +183,9 @@ const electronAPI = {
     ipcRenderer.invoke('sync:setMaxBackups', maxLimit),
   syncGetSyncLog: (profileId?: string): Promise<any[]> => ipcRenderer.invoke('sync:getSyncLog', profileId),
   syncDeleteBackup: (remoteFileRef: string, provider?: 'googledrive' | 's3'): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:deleteBackup', remoteFileRef, provider),
+  syncBackupAllListToCloud: (): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:backupAllListToCloud'),
+  syncRestoreAllListFromCloud: (): Promise<{ success: boolean; count?: number; error?: string }> => ipcRenderer.invoke('sync:restoreAllListFromCloud'),
+  syncRestoreAll: (): Promise<{ success: boolean; count?: number; failed?: number; error?: string }> => ipcRenderer.invoke('sync:restoreAll'),
 
   // Sync events
   onSyncProgress: (callback: (progress: { profileId: string; message: string; percent?: number }) => void) => {

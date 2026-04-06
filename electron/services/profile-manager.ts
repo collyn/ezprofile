@@ -31,6 +31,7 @@ export interface Profile {
 }
 
 export interface CreateProfileInput {
+  id?: string;
   name: string;
   group_name?: string;
   proxy_type?: string;
@@ -81,7 +82,7 @@ export class ProfileManager {
   }
 
   create(input: CreateProfileInput): Profile {
-    const id = uuidv4();
+    const id = input.id || uuidv4();
     const userDataDir = path.join(this.profilesBaseDir, id);
 
     if (!fs.existsSync(userDataDir)) {
@@ -133,6 +134,21 @@ export class ProfileManager {
       }
     });
     insertOp();
+    return results;
+  }
+
+  importMany(inputs: any[]): Profile[] {
+    const results: Profile[] = [];
+    const importOp = this.db.transaction(() => {
+      for (const input of inputs) {
+        if (input.id && this.getById(input.id)) {
+          results.push(this.update(input.id, input));
+        } else {
+          results.push(this.create({ ...input, id: input.id || uuidv4() }));
+        }
+      }
+    });
+    importOp();
     return results;
   }
 
@@ -296,6 +312,15 @@ export class ProfileManager {
 
   setSetting(key: string, value: string): void {
     this.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  }
+
+  getAllSettings(): Record<string, string> {
+    const rows = this.db.prepare('SELECT * FROM settings').all() as { key: string; value: string }[];
+    const result: Record<string, string> = {};
+    for (const row of rows) {
+      result[row.key] = row.value;
+    }
+    return result;
   }
 
   // Proxy management
