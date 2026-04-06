@@ -5,6 +5,10 @@ import { ProxyChecker } from './services/proxy-checker';
 import { CookieManager } from './services/cookie-manager';
 import { BackupManager } from './services/backup-manager';
 import { BrowserVersionManager } from './services/browser-version-manager';
+import { EncryptionService } from './services/encryption-service';
+import { GDriveService } from './services/gdrive-service';
+import { S3Service } from './services/s3-service';
+import { SyncScheduler } from './services/sync-scheduler';
 import { exportData, importData } from './utils/import-export';
 import { autoUpdater } from 'electron-updater';
 
@@ -16,7 +20,11 @@ export function registerIpcHandlers(
   cookieManager: CookieManager,
   backupManager: BackupManager,
   browserVersionManager: BrowserVersionManager,
-  mainWindow: BrowserWindow | null
+  mainWindow: BrowserWindow | null,
+  encryptionSvc?: EncryptionService,
+  gdriveService?: GDriveService,
+  s3Service?: S3Service,
+  syncScheduler?: SyncScheduler
 ) {
   // Cleanup stale 'running' statuses from crashed sessions (using lock files).
   // Runs on startup and every 60s — NOT on every getAll to avoid race conditions.
@@ -177,6 +185,15 @@ export function registerIpcHandlers(
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('profile:statusChanged', id, 'ready');
         }
+        // Auto-sync on close if enabled
+        if (profileManager.getSetting('sync_auto_sync_on_close') === 'true') {
+          syncScheduler?.syncOneOnClose(id).catch(err => {
+            console.error('[IPC] Auto-sync on closed failed:', err);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('profile:toast', 'error', `Auto-sync failed: ${err.message || err}`);
+            }
+          });
+        }
       });
 
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -206,6 +223,16 @@ export function registerIpcHandlers(
     profileManager.updateStatus(id, 'ready');
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('profile:statusChanged', id, 'ready');
+    }
+
+    // Auto-sync on close if enabled
+    if (profileManager.getSetting('sync_auto_sync_on_close') === 'true') {
+      syncScheduler?.syncOneOnClose(id).catch(err => {
+        console.error('[IPC] Auto-sync on closed failed:', err);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('profile:toast', 'error', `Auto-sync failed: ${err.message || err}`);
+        }
+      });
     }
   });
 
@@ -374,8 +401,11 @@ export function registerIpcHandlers(
 
       const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
         title: `Backup Profile: ${profile.name}`,
-        defaultPath: `ezprofile_backup_${profile.name}_${Date.now()}.zip`,
-        filters: [{ name: 'Zip Files', extensions: ['zip'] }]
+        defaultPath: `ezprofile_backup_${profile.name}_${Date.now()}.ezpsync`,
+        filters: [
+          { name: 'EzProfile Protected Sync Backup', extensions: ['ezpsync'] },
+          { name: 'Legacy Zip Files', extensions: ['zip'] }
+        ]
       });
 
       if (canceled || !filePath) {
@@ -399,7 +429,10 @@ export function registerIpcHandlers(
       const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
         title: `Restore Data for: ${profile.name}`,
         properties: ['openFile'],
-        filters: [{ name: 'Zip Files', extensions: ['zip'] }]
+        filters: [
+          { name: 'EzProfile Protected Sync Backup', extensions: ['ezpsync'] },
+          { name: 'Legacy Zip Files', extensions: ['zip'] }
+        ]
       });
 
       if (canceled || filePaths.length === 0) {
@@ -514,4 +547,311 @@ export function registerIpcHandlers(
     const { shell } = require('electron');
     return shell.openExternal(url);
   });
+
+  // ──────────────────────────────────────────────────────────
+  // Sync / Cloud Backup handlers
+  // ──────────────────────────────────────────────────────────
+
+  ipcMain.handle('sync:getSettings', () => {
+    const provider = profileManager.getSetting('sync_provider') || null;
+    const autoSyncOnClose = profileManager.getSetting('sync_auto_sync_on_close') === 'true';
+    const syncMaxBackups = parseInt(profileManager.getSetting('sync_max_backups') ?? '5', 10);
+    const passphraseHint = profileManager.getSetting('sync_passphrase_hint') || '';
+    const gdriveStatus = gdriveService?.getAuthStatus() ?? { connected: false };
+    const gdriveClientId = gdriveService?.getClientId() ?? '';
+    const s3Config = s3Service?.getStoredConfig() ?? null;
+
+    return {
+      provider: provider as 'googledrive' | 's3' | null,
+      autoSyncOnClose,
+      syncMaxBackups,
+      passphraseHint,
+      gdrive: { ...gdriveStatus, clientId: gdriveClientId, hasSecret: !!(gdriveService?.getClientSecret()) },
+      s3: s3Config ? {
+        accessKeyId: s3Config.accessKeyId,
+        bucket: s3Config.bucket,
+        region: s3Config.region,
+        prefix: s3Config.prefix,
+        endpoint: s3Config.endpoint,
+        hasSecret: s3Config.hasSecret,
+        connected: false,
+      } : null,
+      hasPassphrase: syncScheduler?.hasPassphrase() || !!profileManager.getSetting('sync_encrypted_key'),
+    };
+  });
+
+  ipcMain.handle('sync:saveGoogleClientId', (_event, clientId: string) => {
+    if (!gdriveService) return { success: false, error: 'GDrive service not available' };
+    if (!clientId.trim()) return { success: false, error: 'Client ID cannot be empty' };
+    gdriveService.saveClientId(clientId);
+    return { success: true };
+  });
+
+  ipcMain.handle('sync:saveGoogleClientSecret', (_event, secret: string) => {
+    if (!gdriveService) return { success: false, error: 'GDrive service not available' };
+    if (!secret.trim()) return { success: false, error: 'Client Secret cannot be empty' };
+    gdriveService.saveClientSecret(secret);
+    return { success: true };
+  });
+
+  ipcMain.handle('sync:setProvider', (_event, provider: string) => {
+    profileManager.setSetting('sync_provider', provider);
+  });
+
+  ipcMain.handle('sync:saveS3Config', (_event, config: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucket: string;
+    region: string;
+    prefix: string;
+    endpoint?: string;
+  }) => {
+    if (!s3Service) return { success: false, error: 'S3 service not available' };
+    s3Service.saveToSettings(config);
+    return { success: true };
+  });
+
+  ipcMain.handle('sync:testS3', async () => {
+    if (!s3Service) return { success: false, error: 'S3 service not available' };
+    return s3Service.testConnection();
+  });
+
+  ipcMain.handle('sync:startGoogleAuth', async () => {
+    if (!gdriveService || !mainWindow) return { success: false, error: 'GDrive service not available' };
+    try {
+      const result = await gdriveService.authenticate();
+      return { success: true, email: result.email };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:getGoogleAuthStatus', () => {
+    return gdriveService?.getAuthStatus() ?? { connected: false };
+  });
+
+  ipcMain.handle('sync:revokeGoogle', async () => {
+    if (!gdriveService) return { success: false, error: 'GDrive service not available' };
+    try {
+      await gdriveService.revokeAuth();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:setPassphrase', async (_event, passphrase: string, hint?: string) => {
+    if (!syncScheduler || !encryptionSvc) return { success: false, error: 'Sync not initialized' };
+    try {
+      // Get or generate the persistent salt stored in DB
+      let saltHex = profileManager.getSetting('sync_encryption_salt');
+      let salt: Buffer;
+      if (!saltHex) {
+        salt = encryptionSvc.generateSalt();
+        profileManager.setSetting('sync_encryption_salt', salt.toString('hex'));
+      } else {
+        salt = Buffer.from(saltHex, 'hex');
+      }
+
+      const key = await encryptionSvc.deriveKey(passphrase, salt);
+      syncScheduler.setPassphraseKey(key);
+
+      // Persist the derived key encrypted with machine key
+      const encryptedKeyHex = encryptionSvc.encryptString(key.toString('hex'));
+      profileManager.setSetting('sync_encrypted_key', encryptedKeyHex);
+
+      if (hint !== undefined) {
+        profileManager.setSetting('sync_passphrase_hint', hint);
+      }
+
+
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:changePassphrase', async (_event, oldPassphrase: string, newPassphrase: string, newHint?: string) => {
+    if (!syncScheduler || !encryptionSvc) return { success: false, error: 'Sync not initialized' };
+    try {
+      // Verify old passphrase
+      const saltHex = profileManager.getSetting('sync_encryption_salt');
+      if (!saltHex) return { success: false, error: 'No existing passphrase configured' };
+      const salt = Buffer.from(saltHex, 'hex');
+      const oldKey = await encryptionSvc.deriveKey(oldPassphrase, salt);
+
+      // Compare with stored key
+      const storedEncryptedKey = profileManager.getSetting('sync_encrypted_key');
+      if (!storedEncryptedKey) return { success: false, error: 'No existing passphrase configured' };
+      const storedKeyHex = encryptionSvc.decryptString(storedEncryptedKey);
+      const storedKey = Buffer.from(storedKeyHex, 'hex');
+
+      const crypto = require('crypto');
+      if (!crypto.timingSafeEqual(oldKey, storedKey)) {
+        return { success: false, error: 'wrong_passphrase' };
+      }
+
+      // Generate new salt + derive new key
+      const newSalt = encryptionSvc.generateSalt();
+      const newKey = await encryptionSvc.deriveKey(newPassphrase, newSalt);
+
+      // Persist
+      profileManager.setSetting('sync_encryption_salt', newSalt.toString('hex'));
+      const encryptedKeyHex = encryptionSvc.encryptString(newKey.toString('hex'));
+      profileManager.setSetting('sync_encrypted_key', encryptedKeyHex);
+      if (newHint !== undefined) {
+        profileManager.setSetting('sync_passphrase_hint', newHint);
+      }
+
+      syncScheduler.setPassphraseKey(newKey);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:clearPassphrase', () => {
+    if (!syncScheduler) return { success: false, error: 'Sync not initialized' };
+    syncScheduler.clearPassphraseKey();
+    profileManager.setSetting('sync_encrypted_key', '');
+    profileManager.setSetting('sync_encryption_salt', '');
+    profileManager.setSetting('sync_passphrase_hint', '');
+    profileManager.setSetting('sync_auto_sync_on_close', 'false');
+    return { success: true };
+  });
+
+  ipcMain.handle('sync:hasPassphrase', () => {
+    return (syncScheduler?.hasPassphrase() ?? false) || !!profileManager.getSetting('sync_encrypted_key');
+  });
+
+  ipcMain.handle('sync:uploadProfile', async (_event, profileId: string, isBackup?: boolean, targetProvider?: 'googledrive' | 's3' | 'all') => {
+    if (!syncScheduler) return { success: false, error: 'Sync not initialized' };
+    
+    let providers: ('googledrive' | 's3')[] = [];
+    if (targetProvider === 'all') {
+       providers = ['googledrive', 's3'];
+    } else if (targetProvider === 'googledrive' || targetProvider === 's3') {
+       providers = [targetProvider];
+    } else {
+       const defaultProvider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+       if (!defaultProvider) return { success: false, error: 'No sync provider configured' };
+       providers = [defaultProvider];
+    }
+
+    try {
+      let results = [];
+      let errs = [];
+      for (const p of providers) {
+         try {
+           await syncScheduler.syncOne(profileId, p, isBackup);
+           results.push(p);
+         } catch (e: any) {
+           if (targetProvider === 'all' && (e.message.includes('not initialized') || e.message.includes('Not configured'))) {
+              // Ignore unconfigured providers if asking to upload to "all"
+              continue;
+           }
+           errs.push(`${p === 'googledrive' ? 'Google Drive' : 'S3'}: ${e.message}`);
+         }
+      }
+      
+      if (results.length === 0) {
+         if (errs.length > 0) return { success: false, error: errs.join(', ') };
+         return { success: false, error: 'No providers configured to upload.' };
+      }
+      if (errs.length > 0) {
+         return { success: false, error: 'Partial success. Errors: ' + errs.join(', ') };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:downloadProfile', async (_event, profileId: string, remoteFileRef: string, overridePassphrase?: string) => {
+    if (!syncScheduler || !encryptionSvc) return { success: false, error: 'Sync not initialized' };
+    const provider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+    if (!provider) return { success: false, error: 'No sync provider configured' };
+    try {
+      if (overridePassphrase) {
+        // Use a temporary key derived from the override passphrase for old backups
+        const saltHex = profileManager.getSetting('sync_encryption_salt');
+        // For old backups, we cannot know which salt was used. Try the stored salt first.
+        // If that fails, the error will propagate naturally.
+        const salt = saltHex ? Buffer.from(saltHex, 'hex') : encryptionSvc.generateSalt();
+        const tmpKey = await encryptionSvc.deriveKey(overridePassphrase, salt);
+        await syncScheduler.restoreOneWithKey(profileId, remoteFileRef, provider, tmpKey);
+      } else {
+        await syncScheduler.restoreOne(profileId, remoteFileRef, provider);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:listBackups', async (_event, profileId?: string, targetProvider?: 'googledrive' | 's3' | 'all') => {
+    if (!backupManager) return [];
+    try {
+      let providers: ('googledrive' | 's3')[] = [];
+      if (targetProvider === 'all') {
+         providers = ['googledrive', 's3'];
+      } else if (targetProvider === 'googledrive' || targetProvider === 's3') {
+         providers = [targetProvider];
+      } else {
+         const defaultProvider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+         if (defaultProvider) providers = [defaultProvider];
+      }
+
+      let allBackups: any[] = [];
+      for (const p of providers) {
+        try {
+          const backups = await backupManager.listCloudBackups(profileId, p);
+          allBackups = allBackups.concat(backups);
+        } catch {
+           // Ignore if provider not fully configured/authenticated
+        }
+      }
+      return allBackups.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle('sync:uploadAll', async () => {
+    if (!syncScheduler) return { success: false, error: 'Sync not initialized' };
+    const provider = profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+    if (!provider) return { success: false, error: 'No sync provider configured' };
+    try {
+      const result = await syncScheduler.syncAll(provider);
+      return { ...result, success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:setAutoSyncOnClose', (_event, enabled: boolean) => {
+    profileManager.setSetting('sync_auto_sync_on_close', enabled ? 'true' : 'false');
+    return { success: true };
+  });
+
+  ipcMain.handle('sync:setMaxBackups', (_event, maxLimit: number) => {
+    profileManager.setSetting('sync_max_backups', String(maxLimit));
+    return { success: true };
+  });
+
+  ipcMain.handle('sync:getSyncLog', (_event, profileId?: string) => {
+    return profileManager.getSyncLog(profileId);
+  });
+
+  ipcMain.handle('sync:deleteBackup', async (_event, remoteFileRef: string, backupProvider?: 'googledrive' | 's3') => {
+    const provider = backupProvider || profileManager.getSetting('sync_provider') as 'googledrive' | 's3' | null;
+    if (!provider || !backupManager) return { success: false, error: 'Not configured' };
+    try {
+      await backupManager.deleteCloudBackup(remoteFileRef, provider);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
 }
+

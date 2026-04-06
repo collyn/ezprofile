@@ -177,6 +177,35 @@ export const mockElectronAPI: typeof window.electronAPI = {
   onUpdaterError: () => {},
   onDownloadProgress: () => {},
   onUpdateDownloaded: () => {},
+
+  // Sync mocks
+  syncGetSettings: async () => ({
+    provider: null, autoSyncOnClose: false, syncMaxBackups: 5,
+    passphraseHint: '', gdrive: { connected: false }, s3: null,
+    hasPassphrase: false
+  }),
+  syncSetProvider: async () => {},
+  syncSaveS3Config: async (_config) => ({ success: true }),
+  syncTestS3: async () => ({ success: true, error: 'Mock mode' }),
+  syncStartGoogleAuth: async () => ({ success: false, error: 'Mock mode' }),
+  syncGetGoogleAuthStatus: async () => ({ connected: false, clientId: '' }),
+  syncRevokeGoogle: async () => ({ success: true }),
+  syncSaveGoogleClientId: async () => ({ success: true }),
+  syncSaveGoogleClientSecret: async () => ({ success: true }),
+  syncSetPassphrase: async () => ({ success: true }),
+  syncChangePassphrase: async () => ({ success: true }),
+  syncClearPassphrase: async () => ({ success: true }),
+  syncHasPassphrase: async () => false,
+  syncUploadProfile: async (_id: string, _isBackup?: boolean, _targetProvider?: 'googledrive' | 's3' | 'all') => ({ success: true }),
+  syncDownloadProfile: async () => ({ success: true }),
+  syncListBackups: async (_profileId?: string, _targetProvider?: 'googledrive' | 's3' | 'all') => [],
+  syncUploadAll: async () => ({ success: true, total: 0, success_count: 0, failed: 0 }),
+  syncSetAutoSyncOnClose: async () => ({ success: true }),
+  syncSetMaxBackups: async () => ({ success: true }),
+  syncGetSyncLog: async () => [],
+  syncDeleteBackup: async (_remoteFileRef: string, _provider?: 'googledrive' | 's3') => ({ success: true }),
+  onSyncProgress: () => {},
+  onSyncAllComplete: () => {},
 };
 
 export function getAPI(): typeof window.electronAPI {

@@ -81,8 +81,70 @@ declare global {
       onUpdaterError: (callback: (message: string) => void) => void;
       onDownloadProgress: (callback: (info: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
       onUpdateDownloaded: (callback: (info: { version: string }) => void) => void;
+      // Sync / Cloud Backup
+      syncGetSettings: () => Promise<SyncSettings & { hasPassphrase: boolean }>;
+      syncSetProvider: (provider: string) => Promise<void>;
+      syncSaveS3Config: (config: { accessKeyId: string; secretAccessKey: string; bucket: string; region: string; prefix: string; endpoint?: string }) => Promise<{ success: boolean; error?: string }>;
+      syncTestS3: () => Promise<{ success: boolean; error?: string }>;
+      syncStartGoogleAuth: () => Promise<{ success: boolean; email?: string; error?: string }>;
+      syncGetGoogleAuthStatus: () => Promise<{ connected: boolean; email?: string; clientId?: string; hasSecret?: boolean }>;
+      syncRevokeGoogle: () => Promise<{ success: boolean; error?: string }>;
+      syncSaveGoogleClientId: (clientId: string) => Promise<{ success: boolean; error?: string }>;
+      syncSaveGoogleClientSecret: (secret: string) => Promise<{ success: boolean; error?: string }>;
+      syncSetPassphrase: (passphrase: string, hint?: string) => Promise<{ success: boolean; error?: string }>;
+      syncChangePassphrase: (oldPassphrase: string, newPassphrase: string, newHint?: string) => Promise<{ success: boolean; error?: string }>;
+      syncClearPassphrase: () => Promise<{ success: boolean; error?: string }>;
+      syncHasPassphrase: () => Promise<boolean>;
+      syncUploadProfile: (profileId: string, isBackup?: boolean, targetProvider?: 'googledrive' | 's3' | 'all') => Promise<{ success: boolean; error?: string }>;
+      syncDownloadProfile: (profileId: string, remoteFileRef: string, overridePassphrase?: string) => Promise<{ success: boolean; error?: string }>;
+      syncListBackups: (profileId?: string, targetProvider?: 'googledrive' | 's3' | 'all') => Promise<SyncBackupEntry[]>;
+      syncUploadAll: () => Promise<{ success: boolean; total?: number; success_count?: number; failed?: number; error?: string }>;
+      syncSetAutoSyncOnClose: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+      syncSetMaxBackups: (maxLimit: number) => Promise<{ success: boolean; error?: string }>;
+      syncGetSyncLog: (profileId?: string) => Promise<SyncLogEntry[]>;
+      syncDeleteBackup: (remoteFileRef: string, provider?: 'googledrive' | 's3') => Promise<{ success: boolean; error?: string }>;
+      onSyncProgress: (callback: (progress: { profileId: string; message: string; percent?: number }) => void) => void;
+      onSyncAllComplete: (callback: (result: { total: number; success: number; failed: number; errors: { profileId: string; name: string; error: string }[] }) => void) => void;
     };
   }
+}
+
+export interface SyncSettings {
+  provider: 'googledrive' | 's3' | null;
+  autoSyncOnClose: boolean;
+  syncMaxBackups: number;
+  passphraseHint: string;
+  gdrive?: { connected: boolean; email?: string; clientId?: string; hasSecret?: boolean };
+  s3?: {
+    accessKeyId: string;
+    bucket: string;
+    region: string;
+    prefix: string;
+    endpoint?: string;
+    hasSecret: boolean;
+    connected: boolean;
+  } | null;
+}
+
+export interface SyncBackupEntry {
+  id: string;
+  profileId: string;
+  profileName: string;
+  createdAt: string;
+  sizeBytes: number;
+  provider: 'googledrive' | 's3';
+}
+
+export interface SyncLogEntry {
+  id: string;
+  profile_id: string;
+  provider: string;
+  direction: 'upload' | 'download';
+  status: 'success' | 'error';
+  error_message?: string;
+  remote_file?: string;
+  size_bytes?: number;
+  created_at: string;
 }
 
 export interface GroupData {

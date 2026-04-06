@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ProfileData, CreateProfileInput, GroupData, InstalledBrowserVersion, ProxyData } from '../types';
 import { getAPI } from '../api';
 import FingerprintSettings, { FingerprintFlags } from './FingerprintSettings';
+import { XIcon } from './Icons';
 
 const api = getAPI();
 
@@ -88,9 +89,7 @@ export default function EditProfileModal({ profile, groups, onClose, onSave }: E
         <div className="modal-header">
           <h2>{t('profileForm.editTitle')}</h2>
           <button className="modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <XIcon size={16} />
           </button>
         </div>
 

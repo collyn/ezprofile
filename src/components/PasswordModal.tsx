@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { XIcon, LockIcon } from './Icons';
 
 interface PasswordModalProps {
   mode: 'set' | 'verify' | 'remove';
@@ -58,9 +59,7 @@ export default function PasswordModal({ mode, profileName, onConfirm, onClose }:
         <div className="modal-header">
           <h2>{title}</h2>
           <button className="modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -68,10 +67,7 @@ export default function PasswordModal({ mode, profileName, onConfirm, onClose }:
           <div className="modal-body">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
+                <LockIcon size={16} />
                 <strong>{profileName}</strong>
               </span>
             </div>

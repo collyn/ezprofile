@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { ShieldIcon } from './Icons';
 
 interface FingerprintFlags {
   seed?: string;
@@ -166,9 +167,7 @@ export default function FingerprintSettings({ flags, onChange }: FingerprintSett
         display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
         fontSize: 12, fontWeight: 600, color: '#0d9488',
       }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
+        <ShieldIcon size={15} />
         {t('profileForm.fingerprintSettings')}
       </div>
 

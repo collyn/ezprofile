@@ -106,12 +106,15 @@ const electronAPI = {
 
   // Events
   onProfileStatusChanged: (callback: (profileId: string, status: string) => void) => {
+    ipcRenderer.removeAllListeners('profile:statusChanged');
     ipcRenderer.on('profile:statusChanged', (_event, profileId, status) => callback(profileId, status));
   },
   onBackupProgress: (callback: (profileId: string, progress: string) => void) => {
+    ipcRenderer.removeAllListeners('profile:backupProgress');
     ipcRenderer.on('profile:backupProgress', (_event, profileId, progress) => callback(profileId, progress));
   },
   onBrowserDownloadProgress: (callback: (version: string, percent: number, message: string) => void) => {
+    ipcRenderer.removeAllListeners('browser:downloadProgress');
     ipcRenderer.on('browser:downloadProgress', (_event, version, percent, message) => callback(version, percent, message));
   },
 
@@ -124,22 +127,69 @@ const electronAPI = {
   quitAndInstallUpdate: () => ipcRenderer.invoke('updater:install'),
   
   onUpdaterChecking: (callback: () => void) => {
+    ipcRenderer.removeAllListeners('updater:checking');
     ipcRenderer.on('updater:checking', () => callback());
   },
   onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) => {
+    ipcRenderer.removeAllListeners('updater:update-available');
     ipcRenderer.on('updater:update-available', (_event, info) => callback(info));
   },
   onUpdateNotAvailable: (callback: () => void) => {
+    ipcRenderer.removeAllListeners('updater:up-to-date');
     ipcRenderer.on('updater:up-to-date', () => callback());
   },
   onUpdaterError: (callback: (message: string) => void) => {
+    ipcRenderer.removeAllListeners('updater:error');
     ipcRenderer.on('updater:error', (_event, message) => callback(message));
   },
   onDownloadProgress: (callback: (info: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => {
+    ipcRenderer.removeAllListeners('updater:download-progress');
     ipcRenderer.on('updater:download-progress', (_event, info) => callback(info));
   },
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
+    ipcRenderer.removeAllListeners('updater:update-downloaded');
     ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
+  },
+
+  // ── Cloud Sync ──────────────────────────────────────────────
+  syncGetSettings: (): Promise<any> => ipcRenderer.invoke('sync:getSettings'),
+  syncSetProvider: (provider: string) => ipcRenderer.invoke('sync:setProvider', provider),
+  syncSaveS3Config: (config: { accessKeyId: string; secretAccessKey: string; bucket: string; region: string; prefix: string; endpoint?: string }): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('sync:saveS3Config', config),
+  syncTestS3: (): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:testS3'),
+  syncStartGoogleAuth: (): Promise<{ success: boolean; email?: string; error?: string }> => ipcRenderer.invoke('sync:startGoogleAuth'),
+  syncGetGoogleAuthStatus: (): Promise<{ gdrive?: { connected: boolean; email?: string; clientId?: string; hasSecret?: boolean } }> => ipcRenderer.invoke('sync:getGoogleAuthStatus'),
+  syncRevokeGoogle: (): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:revokeGoogle'),
+  syncSaveGoogleClientId: (clientId: string): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:saveGoogleClientId', clientId),
+  syncSaveGoogleClientSecret: (secret: string): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:saveGoogleClientSecret', secret),
+  syncSetPassphrase: (passphrase: string, hint?: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('sync:setPassphrase', passphrase, hint),
+  syncChangePassphrase: (oldPassphrase: string, newPassphrase: string, newHint?: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('sync:changePassphrase', oldPassphrase, newPassphrase, newHint),
+  syncClearPassphrase: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('sync:clearPassphrase'),
+  syncHasPassphrase: (): Promise<boolean> => ipcRenderer.invoke('sync:hasPassphrase'),
+  syncUploadProfile: (profileId: string, isBackup?: boolean, targetProvider?: 'googledrive' | 's3' | 'all'): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:uploadProfile', profileId, isBackup, targetProvider),
+  syncDownloadProfile: (profileId: string, remoteFileRef: string, overridePassphrase?: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('sync:downloadProfile', profileId, remoteFileRef, overridePassphrase),
+  syncListBackups: (profileId?: string, targetProvider?: 'googledrive' | 's3' | 'all'): Promise<any[]> => ipcRenderer.invoke('sync:listBackups', profileId, targetProvider),
+  syncUploadAll: (): Promise<{ success: boolean; total?: number; succeeded?: number; failed?: number; error?: string }> =>
+    ipcRenderer.invoke('sync:uploadAll'),
+  syncSetAutoSyncOnClose: (enabled: boolean): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('sync:setAutoSyncOnClose', enabled),
+  syncSetMaxBackups: (maxLimit: number): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('sync:setMaxBackups', maxLimit),
+  syncGetSyncLog: (profileId?: string): Promise<any[]> => ipcRenderer.invoke('sync:getSyncLog', profileId),
+  syncDeleteBackup: (remoteFileRef: string, provider?: 'googledrive' | 's3'): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('sync:deleteBackup', remoteFileRef, provider),
+
+  // Sync events
+  onSyncProgress: (callback: (progress: { profileId: string; message: string; percent?: number }) => void) => {
+    ipcRenderer.removeAllListeners('sync:progress');
+    ipcRenderer.on('sync:progress', (_event, progress) => callback(progress));
+  },
+  onSyncAllComplete: (callback: (result: { total: number; success: number; failed: number; errors: any[] }) => void) => {
+    ipcRenderer.removeAllListeners('sync:allComplete');
+    ipcRenderer.on('sync:allComplete', (_event, result) => callback(result));
   },
 };
 

@@ -5,6 +5,10 @@ import { ChromeLauncher } from './services/chrome-launcher';
 import { ProxyChecker } from './services/proxy-checker';
 import { CookieManager } from './services/cookie-manager';
 import { BackupManager } from './services/backup-manager';
+import { EncryptionService } from './services/encryption-service';
+import { GDriveService } from './services/gdrive-service';
+import { S3Service } from './services/s3-service';
+import { SyncScheduler } from './services/sync-scheduler';
 import { autoUpdater } from 'electron-updater';
 import { BrowserVersionManager } from './services/browser-version-manager';
 import { registerIpcHandlers } from './ipc-handlers';
@@ -58,12 +62,37 @@ function createWindow() {
   chromeLauncher = new ChromeLauncher(profilesDataDir);
   proxyChecker = new ProxyChecker();
   cookieManager = new CookieManager(chromeLauncher);
-  const backupManager = new BackupManager(chromeLauncher);
+
+  // Sync services
+  const encryptionSvc = new EncryptionService();
+  const s3Service = new S3Service(encryptionSvc, profileManager);
+  const gdriveService = new GDriveService(encryptionSvc, profileManager);
+  s3Service.loadFromSettings();
+
+  const backupManager = new BackupManager(chromeLauncher, encryptionSvc, profileManager, gdriveService, s3Service);
+  const syncScheduler = new SyncScheduler(profileManager, backupManager, () => mainWindow);
+
+  // Auto-load persisted encryption key and resume auto-sync
+  const encryptedKeyHex = profileManager.getSetting('sync_encrypted_key');
+  if (encryptedKeyHex) {
+    try {
+      const keyHex = encryptionSvc.decryptString(encryptedKeyHex);
+      syncScheduler.setPassphraseKey(Buffer.from(keyHex, 'hex'));
+      console.log('[main] Encryption key loaded from DB');
+
+
+    } catch (err) {
+      console.error('[main] Failed to load encryption key (machine key changed?):', err);
+      // Clear corrupted key
+      profileManager.setSetting('sync_encrypted_key', '');
+    }
+  }
+
   const browserVersionManager = new BrowserVersionManager();
   chromeLauncher.setBrowserVersionManager(browserVersionManager);
 
   // Register IPC handlers
-  registerIpcHandlers(ipcMain, profileManager, chromeLauncher, proxyChecker, cookieManager, backupManager, browserVersionManager, mainWindow);
+  registerIpcHandlers(ipcMain, profileManager, chromeLauncher, proxyChecker, cookieManager, backupManager, browserVersionManager, mainWindow, encryptionSvc, gdriveService, s3Service, syncScheduler);
 
   // Load UI
   if (process.env.NODE_ENV === 'development') {

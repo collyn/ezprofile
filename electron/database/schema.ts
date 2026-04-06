@@ -59,6 +59,18 @@ export function initDatabase(dbPath: string): Database.Database {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS sync_log (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      direction TEXT NOT NULL,
+      status TEXT NOT NULL,
+      error_message TEXT,
+      remote_file TEXT,
+      size_bytes INTEGER,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrations

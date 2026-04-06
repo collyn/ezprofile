@@ -9,6 +9,12 @@ import BatchAssignGroupModal from '../components/BatchAssignGroupModal';
 import BatchAssignProxyModal from '../components/BatchAssignProxyModal';
 import BrowserVersionModal from '../components/BrowserVersionModal';
 import ProxyManagerModal from '../components/ProxyManagerModal';
+import SyncProfileModal from '../components/SyncProfileModal';
+import { PassphrasePromptModal } from '../components/PassphrasePromptModal';
+import { getAPI } from '../api';
+import { useDialog } from '../contexts/DialogContext';
+import { useToast } from '../contexts/ToastContext';
+import { PlusIcon, GridIcon, ChromeIcon, ShieldIcon, DownloadIcon, FileUpIcon, SpinnerIcon, SearchIcon, UsersIcon, UploadIcon, CloudDownloadIcon, TrashIcon, EmptyStateIcon, MoreVerticalIcon, LockIcon } from '../components/Icons';
 
 interface ProfileListProps {
   profiles: ProfileData[];
@@ -25,7 +31,7 @@ interface ProfileListProps {
   onDeleteProfile: (id: string) => Promise<void>;
   onDeleteProfiles: (ids: string[]) => Promise<void>;
   onLaunchProfile: (id: string) => void | Promise<void>;
-  onStopProfile: (id: string) => Promise<void>;
+  onStopProfile: (id: string) => void | Promise<void>;
   onBackupProfile: (id: string) => void | Promise<void>;
   onRestoreProfile: (id: string) => void | Promise<void>;
   onCloneProfile: (id: string) => void | Promise<void>;
@@ -33,16 +39,16 @@ interface ProfileListProps {
   onRemovePassword: (id: string) => void;
 }
 
-function formatTimeAgo(dateStr: string | null): string {
+function formatTimeAgo(dateStr: string | null, t: any, lang: string): string {
   if (!dateStr) return '-';
   const date = new Date(dateStr + 'Z');
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diff < 60) return 'Vừa xong';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
-  return date.toLocaleDateString('vi-VN');
+  if (diff < 60) return t('profiles.timeJustNow');
+  if (diff < 3600) return t('profiles.timeMinutes', { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t('profiles.timeHours', { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t('profiles.timeDays', { count: Math.floor(diff / 86400) });
+  return date.toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US');
 }
 
 export default function ProfileList({
@@ -84,8 +90,27 @@ export default function ProfileList({
     y: number;
     profileId: string;
   } | null>(null);
+  const [syncModal, setSyncModal] = useState<{
+    profile: ProfileData;
+    tab: 'upload' | 'restore';
+  } | null>(null);
+  const dialog = useDialog();
+  const { addToast } = useToast();
+  const [pendingPassphraseAction, setPendingPassphraseAction] = useState<(() => Promise<void>) | null>(null);
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
+
+  // Check if cloud sync provider is configured
+  useEffect(() => {
+    (async () => {
+      try {
+        const settings = await getAPI().syncGetSettings();
+        setCloudSyncEnabled(!!settings.provider);
+      } catch {}
+    })();
+  }, []);
 
   // Debounced search handler
   const handleSearchChange = useCallback((value: string) => {
@@ -187,6 +212,76 @@ export default function ProfileList({
     setSelectedIds(new Set());
   }, [selectedIds, onDeleteProfiles]);
 
+  const handleBatchSyncToCloud = useCallback(async (ids?: string[]) => {
+    const targetIds = ids || Array.from(selectedIds);
+    if (targetIds.length === 0) return;
+    
+    // Validate passphrase first
+    const hasPassphrase = await getAPI().syncHasPassphrase();
+    if (!hasPassphrase) {
+      setPendingPassphraseAction(() => () => handleBatchSyncToCloud(targetIds));
+      return;
+    }
+
+    setIsSyncing(true);
+    addToast('info', t('cloudSync.toastSyncingToCloud', { count: targetIds.length }));
+    let success = 0;
+    for (let i = 0; i < targetIds.length; i++) {
+        const res = await getAPI().syncUploadProfile(targetIds[i]);
+        if (res.success) {
+           success++;
+        } else {
+           addToast('error', t('cloudSync.toastSyncFailed', { error: res.error }));
+        }
+    }
+    if (success > 0) addToast('success', t('cloudSync.toastSyncedToCloud', { success, total: targetIds.length }));
+    setIsSyncing(false);
+    setSelectedIds(new Set());
+  }, [selectedIds, addToast]);
+
+  const handleBatchSyncFromCloud = useCallback(async (ids?: string[]) => {
+    const targetIds = ids || Array.from(selectedIds);
+    if (targetIds.length === 0) return;
+    
+    // Validate passphrase first
+    const hasPassphrase = await getAPI().syncHasPassphrase();
+    if (!hasPassphrase) {
+      setPendingPassphraseAction(() => () => handleBatchSyncFromCloud(targetIds));
+      return;
+    }
+
+    const isConfirmed = await dialog.confirm(t('cloudSync.syncFromCloudConfirm'));
+    if (!isConfirmed) return;
+
+    setIsSyncing(true);
+    addToast('info', t('cloudSync.toastSyncingFromCloud', { count: targetIds.length }));
+    try {
+      const allBackups = await getAPI().syncListBackups();
+      let success = 0;
+      for (let i = 0; i < targetIds.length; i++) {
+        const id = targetIds[i];
+        const profileBackups = allBackups
+          .filter((b: any) => b.profileId === id)
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        if (profileBackups.length > 0) {
+          const res = await getAPI().syncDownloadProfile(id, profileBackups[0].id);
+          if (res.success) {
+            success++;
+          } else {
+            addToast('error', t('cloudSync.toastSyncFailed', { error: res.error }));
+          }
+        } else {
+           addToast('error', t('cloudSync.toastNoBackup', { id }));
+        }
+      }
+      if (success > 0) addToast('success', t('cloudSync.toastSyncedFromCloud', { success, total: targetIds.length }));
+    } catch (e: any) {
+      addToast('error', t('cloudSync.toastSyncError', { error: e.message }));
+    }
+    setIsSyncing(false);
+    setSelectedIds(new Set());
+  }, [selectedIds, addToast]);
+
   const SortIcon = ({ field }: { field: string }) => {
     if (sortField !== field) return null;
     return (
@@ -208,62 +303,47 @@ export default function ProfileList({
         <div className="toolbar">
           <div className="toolbar-group">
             <button className="btn btn-success" onClick={() => setShowCreateModal(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <PlusIcon />
               {t('profiles.addNew')}
             </button>
             <button className="btn" onClick={() => setShowGroupManager(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
+              <GridIcon />
               {t('profiles.manageGroups')}
             </button>
             <button className="btn" onClick={() => setShowBrowserVersionModal(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="4" />
-                <line x1="21.17" y1="8" x2="12" y2="8" />
-                <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
-                <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-              </svg>
+              <ChromeIcon />
               {t('profiles.manageChrome')}
             </button>
             <button className="btn" onClick={() => setShowProxyManager(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
+              <ShieldIcon />
               {t('profiles.manageProxies')}
             </button>
             <div className="toolbar-separator" />
             <button className="btn btn-outline btn-sm" onClick={() => onImportProfiles()}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
+              <DownloadIcon />
               {t('profiles.importExcelJson')}
             </button>
             <button className="btn btn-outline btn-sm" onClick={() => onExportProfiles()}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
+              <FileUpIcon />
               {t('profiles.exportAll')}
             </button>
           </div>
 
+          {isSyncing && (
+            <div style={{
+              marginLeft: 10, padding: '4px 10px', fontSize: 12, fontWeight: 500,
+              background: 'rgba(66,133,244,0.1)', color: '#4285f4', borderRadius: 4,
+              border: '1px solid rgba(66,133,244,0.2)', display: 'flex', alignItems: 'center', gap: 6
+            }}>
+              <SpinnerIcon size={12} />
+              {t('profiles.syncing')}
+            </div>
+          )}
+
           <div className="toolbar-separator" />
 
           <div className="search-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
+            <SearchIcon />
             <input
               type="text"
               placeholder={t('profiles.searchPlaceholder')}
@@ -279,33 +359,33 @@ export default function ProfileList({
                 {t('profiles.selectedCount', { count: selectedIds.size })}
               </span>
               <button className="btn btn-outline btn-sm" onClick={() => setShowBatchGroupModal(true)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
+                <UsersIcon />
                 {t('profiles.assignGroup')}
               </button>
               <button className="btn btn-outline btn-sm" onClick={() => setShowBatchProxyModal(true)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
+                <ShieldIcon />
                 {t('profiles.assignProxy')}
               </button>
               <button className="btn btn-outline btn-sm" onClick={() => onExportProfiles(Array.from(selectedIds))}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
+                <FileUpIcon />
                 {t('profiles.export')}
               </button>
+              {cloudSyncEnabled && (
+                <>
+                  <div className="toolbar-separator" />
+                  <button className="btn btn-outline btn-sm" disabled={isSyncing} onClick={() => handleBatchSyncToCloud()}>
+                      <UploadIcon />
+                    {t('profiles.syncToCloud')}
+                  </button>
+                  <button className="btn btn-outline btn-sm" disabled={isSyncing} onClick={() => handleBatchSyncFromCloud()}>
+                      <CloudDownloadIcon />
+                    {t('profiles.syncFromCloud')}
+                  </button>
+                </>
+              )}
+              <div className="toolbar-separator" />
               <button className="btn btn-danger btn-sm" onClick={handleBatchDelete}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="3,6 5,6 21,6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
+                <TrashIcon />
                 {t('profiles.delete')}
               </button>
             </>
@@ -321,16 +401,11 @@ export default function ProfileList({
           </div>
         ) : filteredProfiles.length === 0 ? (
           <div className="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M12 8v4M12 16h.01" />
-            </svg>
+            <EmptyStateIcon size={24} />
             <h3>{t('profiles.emptyStateTitle')}</h3>
             <p>{t('profiles.emptyStateDesc')}</p>
             <button className="btn btn-success" onClick={() => setShowCreateModal(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <PlusIcon />
               {t('profiles.createProfile')}
             </button>
           </div>
@@ -456,6 +531,7 @@ export default function ProfileList({
           y={contextMenu.y}
           profileId={contextMenu.profileId}
           profile={profiles.find((p) => p.id === contextMenu.profileId)!}
+          cloudSyncEnabled={cloudSyncEnabled}
           onClose={() => setContextMenu(null)}
           onEdit={(id: string) => {
             const profile = profiles.find((p) => p.id === id);
@@ -502,6 +578,22 @@ export default function ProfileList({
             onRemovePassword(id);
             setContextMenu(null);
           }}
+          onSyncUpload={(profile: ProfileData) => {
+            setSyncModal({ profile, tab: 'upload' });
+            setContextMenu(null);
+          }}
+          onSyncRestore={(profile: ProfileData) => {
+            setSyncModal({ profile, tab: 'restore' });
+            setContextMenu(null);
+          }}
+          onDirectSyncToCloud={(id: string) => {
+            handleBatchSyncToCloud([id]);
+            setContextMenu(null);
+          }}
+          onDirectSyncFromCloud={(id: string) => {
+            handleBatchSyncFromCloud([id]);
+            setContextMenu(null);
+          }}
         />
       )}
 
@@ -511,6 +603,27 @@ export default function ProfileList({
 
       {showProxyManager && (
         <ProxyManagerModal onClose={() => setShowProxyManager(false)} />
+      )}
+
+      {/* Cloud Sync Modal */}
+      {syncModal && (
+        <SyncProfileModal
+          profile={syncModal.profile}
+          initialTab={syncModal.tab}
+          onClose={() => setSyncModal(null)}
+        />
+      )}
+
+      {/* Passphrase Prompt Modal */}
+      {pendingPassphraseAction && (
+        <PassphrasePromptModal
+          onCancel={() => setPendingPassphraseAction(null)}
+          onComplete={() => {
+            const action = pendingPassphraseAction;
+            setPendingPassphraseAction(null);
+            action();
+          }}
+        />
       )}
     </>
   );
@@ -536,7 +649,7 @@ const ProfileRow = memo(function ProfileRow({
   onStop: (id: string) => void;
   onToggleProxy: (id: string, enabled: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <tr
       className={`${isSelected ? 'selected' : ''} ${profile.status === 'running' ? 'running' : ''}`}
@@ -554,10 +667,7 @@ const ProfileRow = memo(function ProfileRow({
       <td>
         <span style={{ fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           {profile.has_password && (
-            <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" width="12" height="12" style={{ flexShrink: 0 }}>
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
+            <LockIcon size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           )}
           {profile.name}
         </span>
@@ -583,7 +693,7 @@ const ProfileRow = memo(function ProfileRow({
               flexShrink: 0,
               background: profile.proxy_enabled ? '#34a853' : 'var(--border-color)', transition: 'background 0.2s',
             }}
-            title={profile.status === 'running' ? t('profileForm.proxyRunningNote', 'Cannot change while running') : (profile.proxy_enabled ? 'Proxy ON' : 'Proxy OFF')}
+            title={profile.status === 'running' ? t('profileForm.proxyRunningNote', 'Cannot change while running') : (profile.proxy_enabled ? t('profiles.proxyOn') : t('profiles.proxyOff'))}
           >
             <div style={{
               width: 10, height: 10, borderRadius: '50%', background: '#fff', position: 'absolute',
@@ -604,7 +714,7 @@ const ProfileRow = memo(function ProfileRow({
         </div>
       </td>
       <td>
-        <span className="time-ago">{formatTimeAgo(profile.last_run_at)}</span>
+        <span className="time-ago">{formatTimeAgo(profile.last_run_at, t, i18n.language)}</span>
       </td>
       <td>
         {profile.group_name ? (
@@ -620,7 +730,7 @@ const ProfileRow = memo(function ProfileRow({
       </td>
       <td>
         <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-          {profile.browser_version || 'System'}
+          {profile.browser_version || t('profiles.systemVersion')}
         </span>
       </td>
       <td>
@@ -644,11 +754,7 @@ const ProfileRow = memo(function ProfileRow({
             onClick={(e) => onContextMenu(e, profile.id)}
             title={t('profiles.moreOptions')}
           >
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="5" r="1.5" />
-              <circle cx="12" cy="12" r="1.5" />
-              <circle cx="12" cy="19" r="1.5" />
-            </svg>
+            <MoreVerticalIcon />
           </button>
         </div>
       </td>

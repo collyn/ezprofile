@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GroupData } from '../types';
+import { useDialog } from '../contexts/DialogContext';
+import { XIcon } from './Icons';
 
 interface BatchAssignGroupModalProps {
   groups: GroupData[];
@@ -16,6 +18,7 @@ export default function BatchAssignGroupModal({
   onSave,
 }: BatchAssignGroupModalProps) {
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [groupName, setGroupName] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -27,7 +30,7 @@ export default function BatchAssignGroupModal({
       onClose();
     } catch (err) {
       console.error(err);
-      alert(t('batchGroup.error'));
+      await dialog.alert(t('batchGroup.error'));
     } finally {
       setSaving(false);
     }
@@ -39,9 +42,7 @@ export default function BatchAssignGroupModal({
         <div className="modal-header">
           <h2>{t('batchGroup.title', { count: selectedCount })}</h2>
           <button className="modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <XIcon size={16} />
           </button>
         </div>
 

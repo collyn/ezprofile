@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getAPI } from '../api';
+import SyncSettingsSection from '../components/SyncSettingsSection';
+import { ArrowLeftIcon, CheckIcon, ChromeIcon, ResetIcon, FolderIcon, InfoIcon, SpinnerIcon, DownloadIcon, ArrowDownIcon, SparklesIcon, KeyboardIcon } from '../components/Icons';
 
 const api = getAPI();
 
@@ -142,6 +144,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   }
 
   return (
+    <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
     <div style={{ padding: '0 24px 24px', maxWidth: 720, margin: '0 auto' }}>
       {/* Header */}
       <div style={{
@@ -154,9 +157,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           onClick={onBack}
           style={{ display: 'flex', alignItems: 'center', gap: 4 }}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeftIcon size={14} />
           {t('settings.back')}
         </button>
         <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t('settings.title')}</h1>
@@ -166,9 +167,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
             display: 'flex', alignItems: 'center', gap: 4,
             animation: 'fadeIn 0.3s ease',
           }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
+            <CheckIcon size={14} />
             {t('settings.saved')}
           </span>
         )}
@@ -180,13 +179,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
           marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="12" r="4" />
-            <line x1="21.17" y1="8" x2="12" y2="8" />
-            <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
-            <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-          </svg>
+          <ChromeIcon size={16} />
           {t('settings.chromePath.title')}
         </div>
         <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, marginTop: 0 }}>
@@ -208,10 +201,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           </button>
           {chromePath && (
             <button className="btn btn-sm btn-outline" onClick={handleResetChromePath} title={t('settings.chromePath.reset')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
-              </svg>
+              <ResetIcon size={14} />
             </button>
           )}
         </div>
@@ -223,9 +213,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
           marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-          </svg>
+          <FolderIcon size={16} />
           {t('settings.profilesDir.title')}
         </div>
         <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, marginTop: 0 }}>
@@ -248,17 +236,16 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         </div>
       </section>
 
+      {/* Cloud Sync */}
+      <SyncSettingsSection />
+
       {/* App Info */}
       <section style={{ marginBottom: 28 }}>
         <div style={{
           fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
           marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
+          <InfoIcon size={16} />
           {t('settings.appInfo.title')}
         </div>
         <div style={{
@@ -283,9 +270,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               {/* Checking */}
               {updateStatus === 'checking' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
-                    <path d="M21 12a9 9 0 11-6.219-8.56" />
-                  </svg>
+                  <SpinnerIcon size={14} />
                   {t('settings.appInfo.checking')}
                 </div>
               )}
@@ -304,21 +289,14 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     color: '#fbbc05', fontWeight: 600, marginBottom: 10,
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2v10m0 0l3-3m-3 3l-3-3" />
-                      <path d="M20 21H4" />
-                    </svg>
+                    <ArrowDownIcon size={14} />
                     {t('settings.appInfo.updateAvailable', { version: newVersion })}
                   </div>
                   <button className="btn btn-primary btn-sm" onClick={handleDownloadUpdate} style={{
                     background: 'linear-gradient(135deg, #4285f4, #34a853)',
                     border: 'none', fontWeight: 600,
                   }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 4 }}>
-                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
+                    <DownloadIcon size={12} strokeWidth={2.5} style={{ marginRight: 4 }} />
                     {isMac ? t('settings.appInfo.openDownloadPage') : t('settings.appInfo.downloadUpdate')}
                   </button>
                 </div>
@@ -350,18 +328,14 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     color: '#34a853', fontWeight: 600, marginBottom: 10,
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
+                    <CheckIcon size={14} />
                     {t('settings.appInfo.downloadReady', { version: newVersion })}
                   </div>
                   <button className="btn btn-primary btn-sm" onClick={handleInstallUpdate} style={{
                     background: 'linear-gradient(135deg, #34a853, #0f9d58)',
                     border: 'none', fontWeight: 600,
                   }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 4 }}>
-                      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-                    </svg>
+                    <SparklesIcon size={12} strokeWidth={2.5} style={{ marginRight: 4 }} />
                     {t('settings.appInfo.installUpdate')}
                   </button>
                 </div>
@@ -398,17 +372,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
           marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <line x1="6" y1="8" x2="6.01" y2="8" />
-            <line x1="10" y1="8" x2="10.01" y2="8" />
-            <line x1="14" y1="8" x2="14.01" y2="8" />
-            <line x1="18" y1="8" x2="18.01" y2="8" />
-            <line x1="8" y1="12" x2="8.01" y2="12" />
-            <line x1="12" y1="12" x2="12.01" y2="12" />
-            <line x1="16" y1="12" x2="16.01" y2="12" />
-            <line x1="7" y1="16" x2="17" y2="16" />
-          </svg>
+          <KeyboardIcon size={16} />
           {t('settings.shortcuts.title')}
         </div>
         <div style={{
@@ -422,6 +386,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           <ShortcutRow keys={['Esc']} desc={t('settings.shortcuts.close')} />
         </div>
       </section>
+    </div>
     </div>
   );
 }
@@ -456,3 +421,5 @@ function ShortcutRow({ keys, desc }: { keys: string[]; desc: string }) {
     </div>
   );
 }
+
+

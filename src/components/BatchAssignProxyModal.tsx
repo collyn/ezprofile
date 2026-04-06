@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getAPI } from '../api';
+import { useDialog } from '../contexts/DialogContext';
+import { XIcon } from './Icons';
 
 interface BatchAssignProxyModalProps {
   selectedCount: number;
@@ -20,6 +22,7 @@ export default function BatchAssignProxyModal({
   onSave,
 }: BatchAssignProxyModalProps) {
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [proxyType, setProxyType] = useState('');
   const [proxyHost, setProxyHost] = useState('');
   const [proxyPort, setProxyPort] = useState('');
@@ -72,7 +75,7 @@ export default function BatchAssignProxyModal({
       onClose();
     } catch (err) {
       console.error(err);
-      alert(t('batchProxy.error'));
+      await dialog.alert(t('batchProxy.error'));
     } finally {
       setSaving(false);
     }
@@ -84,9 +87,7 @@ export default function BatchAssignProxyModal({
         <div className="modal-header">
           <h2>{t('batchProxy.title', { count: selectedCount })}</h2>
           <button className="modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <XIcon size={16} />
           </button>
         </div>
 

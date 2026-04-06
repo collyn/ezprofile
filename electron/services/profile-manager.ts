@@ -334,6 +334,41 @@ export class ProfileManager {
     this.db.prepare('DELETE FROM proxies WHERE id = ?').run(id);
   }
 
+  // Sync log
+  writeSyncLog(entry: {
+    profileId: string;
+    provider: string;
+    direction: 'upload' | 'download';
+    status: 'success' | 'error';
+    remoteFile?: string;
+    sizeBytes?: number;
+    errorMessage?: string;
+  }): void {
+    const { v4: uuid } = require('uuid');
+    this.db.prepare(
+      `INSERT INTO sync_log (id, profile_id, provider, direction, status, error_message, remote_file, size_bytes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      uuid(),
+      entry.profileId,
+      entry.provider,
+      entry.direction,
+      entry.status,
+      entry.errorMessage ?? null,
+      entry.remoteFile ?? null,
+      entry.sizeBytes ?? null
+    );
+  }
+
+  getSyncLog(profileId?: string, limit = 50): any[] {
+    if (profileId) {
+      return this.db
+        .prepare('SELECT * FROM sync_log WHERE profile_id = ? ORDER BY created_at DESC LIMIT ?')
+        .all(profileId, limit);
+    }
+    return this.db.prepare('SELECT * FROM sync_log ORDER BY created_at DESC LIMIT ?').all(limit);
+  }
+
   close(): void {
     this.db.close();
   }

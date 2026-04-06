@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProxyData } from '../types';
 import { getAPI } from '../api';
+import { useDialog } from '../contexts/DialogContext';
+import { CheckCircleIcon, XCircleIcon, TrashIcon, EditIcon, DownloadIcon, ClipboardIcon, XIcon } from './Icons';
 
 const api = getAPI();
 
@@ -11,6 +13,7 @@ interface ProxyManagerModalProps {
 
 export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [proxies, setProxies] = useState<ProxyData[]>([]);
   const [name, setName] = useState('');
   const [type, setType] = useState('http');
@@ -88,8 +91,10 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
     setPassword(proxy.password || '');
   };
 
-  const handleDelete = async (id: string, proxyName: string) => {
-    if (!confirm(t('proxyManager.deleteConfirm', { name: proxyName }))) return;
+  const handleDelete = async (id: string) => {
+    const proxyName = proxies.find(p => p.id === id)?.name || 'Unknown Proxy';
+    const isConfirmed = await dialog.confirm(t('proxyManager.deleteConfirm', { name: proxyName }));
+    if (!isConfirmed) return;
     try {
       await api.deleteProxy(id);
       await loadProxies();
@@ -217,9 +222,7 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
         <div className="modal-header">
           <h2>{t('proxyManager.title')}</h2>
           <button className="modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -306,10 +309,7 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
               className={`btn btn-outline btn-sm`}
               onClick={() => setShowImport(!showImport)}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-              </svg>
+              <ClipboardIcon size={14} />
               {t('proxyManager.importFromClipboard')}
             </button>
             <button
@@ -317,11 +317,7 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
               className="btn btn-outline btn-sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
+              <DownloadIcon size={14} />
               {t('proxyManager.importFromFile')}
             </button>
             <input
@@ -425,8 +421,8 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
                               : '#ea4335',
                           }}>
                             {checkResult.status === 'checking' && t('proxyManager.checking')}
-                            {checkResult.status === 'live' && `✓ Live! ${checkResult.info}`}
-                            {checkResult.status === 'error' && `✗ ${checkResult.info}`}
+                            {checkResult.status === 'live' && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleIcon size={14} /> Live! {checkResult.info}</span>}
+                            {checkResult.status === 'error' && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><XCircleIcon size={14} /> {checkResult.info}</span>}
                           </div>
                         )}
                       </div>
@@ -437,10 +433,7 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
                           onClick={() => handleCheck(proxy)}
                           title={t('proxyManager.checkProxy')}
                         >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                            <polyline points="22 4 12 14.01 9 11.01" />
-                          </svg>
+                          <CheckCircleIcon size={14} />
                         </button>
                         <button
                           className="btn btn-icon"
@@ -448,20 +441,15 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
                           onClick={() => handleEdit(proxy)}
                           title={t('proxyManager.edit')}
                         >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
+                          <EditIcon size={14} />
                         </button>
                         <button
                           className="btn btn-icon"
                           style={{ width: 28, height: 28, color: 'var(--accent-red)' }}
-                          onClick={() => handleDelete(proxy.id, proxy.name)}
+                          onClick={() => handleDelete(proxy.id)}
                           title={t('proxyManager.deleteTooltip')}
                         >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                          </svg>
+                          <TrashIcon size={14} />
                         </button>
                       </div>
                     </div>

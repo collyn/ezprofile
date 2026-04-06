@@ -3,9 +3,15 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/global.css';
 import './i18n';
+import { DialogProvider } from './contexts/DialogContext.tsx';
+import { ToastProvider } from './contexts/ToastContext.tsx';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <DialogProvider>
+      <ToastProvider>
+        <App />
+      </ToastProvider>
+    </DialogProvider>
   </React.StrictMode>
 );

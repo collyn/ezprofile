@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GroupData } from '../types';
 import { getAPI } from '../api';
+import { useDialog } from '../contexts/DialogContext';
+import { XIcon, TrashIcon } from './Icons';
 
 interface GroupManagerModalProps {
   groups: GroupData[];
@@ -22,6 +24,7 @@ const PRESET_COLORS = [
 
 export default function GroupManagerModal({ groups, onClose, onRefresh }: GroupManagerModalProps) {
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupColor, setNewGroupColor] = useState(PRESET_COLORS[0]);
   const [submitting, setSubmitting] = useState(false);
@@ -37,14 +40,15 @@ export default function GroupManagerModal({ groups, onClose, onRefresh }: GroupM
       await onRefresh();
     } catch (err) {
       console.error(err);
-      alert(t('groupManager.createFail'));
+      await dialog.alert(t('groupManager.createFail'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(t('groupManager.deleteConfirm', { name }))) {
+    const isConfirmed = await dialog.confirm(t('groupManager.deleteConfirm', { name }));
+    if (!isConfirmed) {
       return;
     }
     try {
@@ -52,7 +56,7 @@ export default function GroupManagerModal({ groups, onClose, onRefresh }: GroupM
       await onRefresh();
     } catch (err) {
       console.error(err);
-      alert(t('groupManager.deleteFail'));
+      await dialog.alert(t('groupManager.deleteFail'));
     }
   };
 
@@ -62,9 +66,7 @@ export default function GroupManagerModal({ groups, onClose, onRefresh }: GroupM
         <div className="modal-header">
           <h2>{t('groupManager.title')}</h2>
           <button className="modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <XIcon size={16} />
           </button>
         </div>
 
@@ -165,9 +167,7 @@ export default function GroupManagerModal({ groups, onClose, onRefresh }: GroupM
                       onClick={() => handleDelete(group.id, group.name)}
                       title={t('groupManager.deleteTooltip')}
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                      </svg>
+                      <TrashIcon />
                     </button>
                   </div>
                 ))}

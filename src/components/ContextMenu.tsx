@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProfileData } from '../types';
 import { getAPI } from '../api';
+import { PauseIcon, PlayIcon, EditIcon, CopyIcon, DownloadIcon, FileUpIcon, UploadIcon, CloudDownloadIcon, DatabaseIcon, LockIcon, TrashIcon } from './Icons';
 
 const api = getAPI();
 
@@ -10,6 +11,7 @@ interface ContextMenuProps {
   y: number;
   profileId: string;
   profile: ProfileData;
+  cloudSyncEnabled?: boolean;
   onClose: () => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -22,6 +24,10 @@ interface ContextMenuProps {
   onCloneProfile: (id: string) => void;
   onSetPassword: (id: string) => void;
   onRemovePassword: (id: string) => void;
+  onSyncUpload?: (profile: ProfileData) => void;
+  onSyncRestore?: (profile: ProfileData) => void;
+  onDirectSyncToCloud?: (id: string) => void;
+  onDirectSyncFromCloud?: (id: string) => void;
 }
 
 export default function ContextMenu({
@@ -29,6 +35,7 @@ export default function ContextMenu({
   y,
   profileId,
   profile,
+  cloudSyncEnabled,
   onClose,
   onEdit,
   onDelete,
@@ -41,6 +48,10 @@ export default function ContextMenu({
   onCloneProfile,
   onSetPassword,
   onRemovePassword,
+  onSyncUpload,
+  onSyncRestore,
+  onDirectSyncToCloud,
+  onDirectSyncFromCloud,
 }: ContextMenuProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -79,17 +90,12 @@ export default function ContextMenu({
     >
       {profile.status === 'running' ? (
         <button className="context-menu-item" onClick={() => onStop(profileId)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="6" y="4" width="4" height="16" />
-            <rect x="14" y="4" width="4" height="16" />
-          </svg>
+          <PauseIcon />
           {t('profiles.contextMenu.closeBrowser')}
         </button>
       ) : (
         <button className="context-menu-item" onClick={() => onLaunch(profileId)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polygon points="5,3 19,12 5,21" />
-          </svg>
+          <PlayIcon />
           {t('profiles.contextMenu.openBrowser')}
         </button>
       )}
@@ -97,93 +103,81 @@ export default function ContextMenu({
       <div className="context-menu-divider" />
 
       <button className="context-menu-item" onClick={() => onEdit(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
+        <EditIcon />
         {t('profiles.contextMenu.edit')}
       </button>
 
       <button className="context-menu-item" onClick={() => copyToClipboard(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
+        <CopyIcon />
         {t('profiles.contextMenu.copyId')}
       </button>
 
       <button className="context-menu-item" onClick={() => copyToClipboard(profile.name)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
+        <CopyIcon />
         {t('profiles.contextMenu.copyName')}
       </button>
 
       <button className="context-menu-item" onClick={() => onCloneProfile(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
+        <CopyIcon />
         {t('profiles.contextMenu.cloneProfile')}
       </button>
 
       <div className="context-menu-divider" />
 
       <button className="context-menu-item" onClick={() => onImportCookies(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7,10 12,15 17,10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
+        <DownloadIcon />
         {t('profiles.contextMenu.importCookies')}
       </button>
 
       <button className="context-menu-item" onClick={() => onExportCookies(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17,8 12,3 7,8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
+        <FileUpIcon />
         {t('profiles.contextMenu.exportCookies')}
       </button>
 
       <div className="context-menu-divider" />
 
       <button className="context-menu-item" onClick={() => onBackupProfile(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
+        <FileUpIcon />
         {t('profiles.contextMenu.backupData')}
       </button>
 
       <button className="context-menu-item" onClick={() => onRestoreProfile(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
+        <DownloadIcon />
         {t('profiles.contextMenu.restoreData')}
       </button>
 
       <div className="context-menu-divider" />
 
+      {/* Cloud Sync — only shown when a provider is configured */}
+      {cloudSyncEnabled && (
+        <>
+          <button className="context-menu-item" onClick={() => onDirectSyncToCloud?.(profileId)}>
+            <UploadIcon />
+            {t('profiles.contextMenu.syncToCloud')}
+          </button>
+
+          <button className="context-menu-item" onClick={() => onDirectSyncFromCloud?.(profileId)}>
+            <CloudDownloadIcon />
+            {t('profiles.contextMenu.syncFromCloud')}
+          </button>
+
+          <button className="context-menu-item" onClick={() => { onSyncUpload?.(profile); onClose(); }}>
+            <DatabaseIcon style={{ opacity: 0.6 }} />
+            {t('profiles.contextMenu.manageCloudBackups')}
+          </button>
+
+          <div className="context-menu-divider" />
+        </>
+      )}
+
       {profile.has_password ? (
         <button className="context-menu-item" onClick={() => onRemovePassword(profileId)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
+          <LockIcon />
           {t('profiles.contextMenu.removePassword')}
         </button>
       ) : (
         <button className="context-menu-item" onClick={() => onSetPassword(profileId)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
+          <LockIcon />
           {t('profiles.contextMenu.setPassword')}
         </button>
       )}
@@ -191,10 +185,7 @@ export default function ContextMenu({
       <div className="context-menu-divider" />
 
       <button className="context-menu-item danger" onClick={() => onDelete(profileId)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="3,6 5,6 21,6" />
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
+        <TrashIcon />
         {t('profiles.contextMenu.deleteProfile')}
       </button>
     </div>
