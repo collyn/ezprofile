@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Profile } from './profile-manager';
 import { ChromeLauncher } from './chrome-launcher';
+import { PortableCookie } from './chrome-cookie-crypto';
 
 export class CookieManager {
   constructor(private chromeLauncher: ChromeLauncher) {}
@@ -114,6 +115,63 @@ export class CookieManager {
       
       // Delay to ensure Chrome flushes the new cookies to the SQLite database
       await new Promise(resolve => setTimeout(resolve, 2000));
+    } finally {
+      await browser.close();
+    }
+  }
+
+  /**
+   * Import cookies from a PortableCookie array via CDP.
+   * Used during cross-platform restore to re-encrypt cookies
+   * with the target platform's Chrome key.
+   */
+  async importCookiesFromArray(profile: Profile, portableCookies: PortableCookie[]): Promise<void> {
+    if (portableCookies.length === 0) return;
+
+    console.log(`[CookieManager] Importing ${portableCookies.length} portable cookies for profile ${profile.id}`);
+
+    const cookies = portableCookies.map(c => {
+      const param: any = {
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path,
+        secure: c.sameSite === 'None' ? true : c.secure,
+        httpOnly: c.httpOnly,
+        sameSite: c.sameSite,
+      };
+
+      if (c.expires > 0) {
+        param.expires = c.expires;
+      }
+
+      // Generate URL from domain (CDP requires a contextual URL)
+      let domainStr = c.domain.startsWith('.') ? c.domain.substring(1) : c.domain;
+      param.url = `http${param.secure ? 's' : ''}://${domainStr}${c.path || '/'}`;
+
+      return param;
+    });
+
+    const browser = await puppeteer.launch({
+      executablePath: this.chromeLauncher.getChromePath(),
+      userDataDir: profile.user_data_dir,
+      headless: 'new' as any,
+      ignoreDefaultArgs: ['--enable-automation', '--use-mock-keychain', '--password-store=basic'],
+      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3']
+    });
+
+    try {
+      const pages = await browser.pages();
+      const page = pages.length > 0 ? pages[0] : await browser.newPage();
+      const client = await page.createCDPSession();
+
+      // Inject cookies via CDP — Chrome re-encrypts them with the local platform's key
+      await client.send('Network.setCookies', { cookies });
+
+      // Wait for Chrome to flush cookies to the SQLite database
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      console.log(`[CookieManager] Successfully imported ${cookies.length} portable cookies`);
     } finally {
       await browser.close();
     }

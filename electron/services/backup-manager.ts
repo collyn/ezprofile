@@ -8,6 +8,8 @@ import { ChromeLauncher } from './chrome-launcher';
 import { EncryptionService } from './encryption-service';
 import { GDriveService } from './gdrive-service';
 import { S3Service } from './s3-service';
+import { CookieManager } from './cookie-manager';
+import { extractPortableCookies, savePortableCookies, readPortableCookies, removePortableCookies } from './chrome-cookie-crypto';
 import { WebContents } from 'electron';
 
 // ─────────────────────────────────────────────────────────────
@@ -47,6 +49,8 @@ export interface SyncProgress {
 }
 
 export class BackupManager {
+  private cookieManager?: CookieManager;
+
   constructor(
     private chromeLauncher: ChromeLauncher,
     private encryptionSvc?: EncryptionService,
@@ -55,9 +59,49 @@ export class BackupManager {
     private s3Service?: S3Service
   ) {}
 
+  setCookieManager(cm: CookieManager): void {
+    this.cookieManager = cm;
+  }
+
   // ─────────────────────────────────────────────────────────────
   // Local backup/restore
   // ─────────────────────────────────────────────────────────────
+
+  /**
+   * After extracting a backup, check if portable cookies exist and re-import
+   * them via CDP so Chrome re-encrypts with the target platform's key.
+   */
+  private async reimportPortableCookies(profile: Profile): Promise<void> {
+    const portable = readPortableCookies(profile.user_data_dir);
+    if (!portable || portable.cookies.length === 0) return;
+
+    // Always re-import cookies — the backup was made with decrypted values that
+    // need to be injected via CDP so Chrome encrypts them with the local key.
+    console.log(`[BackupManager] Re-importing ${portable.cookies.length} portable cookies (source: ${portable.platform})`);
+
+    if (!this.cookieManager) {
+      console.warn('[BackupManager] CookieManager not set, cannot re-import portable cookies');
+      removePortableCookies(profile.user_data_dir);
+      return;
+    }
+
+    try {
+      // Delete the existing Cookies database file so CDP writes a fresh one
+      // encrypted with the current platform's key
+      const cookiesDbPath = path.join(profile.user_data_dir, 'Default', 'Cookies');
+      const cookiesJournalPath = path.join(profile.user_data_dir, 'Default', 'Cookies-journal');
+      for (const f of [cookiesDbPath, cookiesJournalPath]) {
+        try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {}
+      }
+
+      await this.cookieManager.importCookiesFromArray(profile, portable.cookies);
+      console.log(`[BackupManager] Successfully re-imported ${portable.cookies.length} cookies`);
+    } catch (err) {
+      console.error('[BackupManager] Failed to re-import portable cookies:', err);
+    } finally {
+      removePortableCookies(profile.user_data_dir);
+    }
+  }
 
   private getDefaultLocalKey(): Buffer {
     return require('crypto').createHash('sha256').update('ezprofile-local-backup-fallback').digest();
@@ -92,6 +136,17 @@ export class BackupManager {
     }
 
     try {
+      // Extract portable cookies for cross-platform compatibility
+      try {
+        const cookies = extractPortableCookies(profile.user_data_dir);
+        if (cookies.length > 0) {
+          savePortableCookies(profile.user_data_dir, cookies);
+          if (webContents) webContents.send('profile:backupProgress', profile.id, `Extracted ${cookies.length} cookies for portability`);
+        }
+      } catch (err) {
+        console.warn('[BackupManager] Portable cookie extraction failed (non-fatal):', err);
+      }
+
       const isEzpSync = targetZipPath.endsWith('.ezpsync');
       const zip = new AdmZip();
       this.addDirectoryToZip(profile.user_data_dir, '', zip, IGNORE_FOLDERS, IGNORE_FILES);
@@ -114,7 +169,11 @@ export class BackupManager {
       } else {
         zip.writeZip(targetZipPath);
       }
+
+      // Clean up portable cookies file from profile directory
+      removePortableCookies(profile.user_data_dir);
     } catch (error: any) {
+      removePortableCookies(profile.user_data_dir);
       throw new Error(`Compression error: ${error.message}`);
     }
   }
@@ -175,6 +234,9 @@ export class BackupManager {
       if (isEzpSync && fs.existsSync(tmpZip)) {
         fs.unlinkSync(tmpZip);
       }
+
+      // Re-import portable cookies via CDP if present (cross-platform restore)
+      await this.reimportPortableCookies(profile);
     } catch (error: any) {
       throw new Error(`Extraction error: ${error.message}`);
     }
@@ -202,11 +264,25 @@ export class BackupManager {
     const tmpEncrypted = path.join(tmpDir, `ezprofile_${profile.id}_${Date.now()}.ezpsync`);
 
     try {
+      // 0. Extract portable cookies for cross-platform compatibility
+      try {
+        const cookies = extractPortableCookies(profile.user_data_dir);
+        if (cookies.length > 0) {
+          savePortableCookies(profile.user_data_dir, cookies);
+          onProgress?.({ profileId: profile.id, message: `Extracted ${cookies.length} cookies for portability`, percent: 5 });
+        }
+      } catch (err) {
+        console.warn('[BackupManager] Portable cookie extraction failed (non-fatal):', err);
+      }
+
       // 1. Compress
       onProgress?.({ profileId: profile.id, message: 'Compressing profile...', percent: 10 });
       const zip = new AdmZip();
       this.addDirectoryToZip(profile.user_data_dir, '', zip, IGNORE_FOLDERS, IGNORE_FILES);
       zip.writeZip(tmpZip);
+
+      // Clean up portable cookies file from profile directory
+      removePortableCookies(profile.user_data_dir);
 
       // 2. Encrypt → .ezpsync
       onProgress?.({ profileId: profile.id, message: 'Encrypting...', percent: 40 });
@@ -312,7 +388,11 @@ export class BackupManager {
       const zip = new AdmZip(tmpZip);
       zip.extractAllTo(profile.user_data_dir, true);
 
-      // 4. Log
+      // 4. Re-import portable cookies via CDP (cross-platform restore)
+      onProgress?.({ profileId: profile.id, message: 'Restoring cookies...', percent: 85 });
+      await this.reimportPortableCookies(profile);
+
+      // 5. Log
       this.writeSyncLog(profile.id, provider, 'download', 'success', remoteFileRef);
       onProgress?.({ profileId: profile.id, message: 'Restore complete!', percent: 100 });
     } catch (err: any) {

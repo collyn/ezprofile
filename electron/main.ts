@@ -70,6 +70,7 @@ function createWindow() {
   s3Service.loadFromSettings();
 
   const backupManager = new BackupManager(chromeLauncher, encryptionSvc, profileManager, gdriveService, s3Service);
+  backupManager.setCookieManager(cookieManager);
   const syncScheduler = new SyncScheduler(profileManager, backupManager, () => mainWindow);
 
   // Auto-load persisted encryption key and resume auto-sync
