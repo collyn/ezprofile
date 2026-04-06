@@ -18,8 +18,8 @@ export class CookieManager {
       executablePath: this.chromeLauncher.getChromePath(),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
-      ignoreDefaultArgs: ['--enable-automation', '--use-mock-keychain', '--password-store=basic'],
-      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3']
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3', '--password-store=basic', '--use-mock-keychain']
     });
 
     try {
@@ -55,8 +55,8 @@ export class CookieManager {
       executablePath: this.chromeLauncher.getChromePath(),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
-      ignoreDefaultArgs: ['--enable-automation', '--use-mock-keychain', '--password-store=basic'],
-      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3']
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3', '--password-store=basic', '--use-mock-keychain']
     });
 
     try {
@@ -158,8 +158,8 @@ export class CookieManager {
       executablePath: this.chromeLauncher.getChromePath(),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
-      ignoreDefaultArgs: ['--enable-automation', '--use-mock-keychain', '--password-store=basic'],
-      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3']
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3', '--password-store=basic', '--use-mock-keychain']
     });
 
     try {
@@ -213,8 +213,8 @@ export class CookieManager {
       executablePath: this.chromeLauncher.getChromePath(),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
-      ignoreDefaultArgs: ['--enable-automation', '--use-mock-keychain', '--password-store=basic'],
-      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3']
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: ['--disable-extensions', '--no-sandbox', '--disable-logging', '--log-level=3', '--password-store=basic', '--use-mock-keychain']
     });
 
     try {

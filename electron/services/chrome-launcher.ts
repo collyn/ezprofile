@@ -217,6 +217,43 @@ export class ChromeLauncher {
 
     // Detect CloakBrowser early to use different arg sets
     const isCloakBrowser = this.browserVersionManager?.isCloakBrowserVersion(options.browserVersion || '');
+    let versionMismatch = false;
+
+    if (isCloakBrowser) {
+      const localStatePath = path.join(userDataDir, 'Local State');
+      const defaultDir = path.join(userDataDir, 'Default');
+      const cloakMajor = parseInt((options.browserVersion || '').replace(/^CloakBrowser\s*/i, '').split('.')[0], 10);
+
+      if (cloakMajor && fs.existsSync(localStatePath)) {
+        try {
+          const localState = JSON.parse(fs.readFileSync(localStatePath, 'utf-8'));
+          const lastVersion = localState?.browser?.last_version || localState?.chrome?.last_version || '';
+          const lastMajor = parseInt(lastVersion.split('.')[0], 10);
+          if (lastMajor && lastMajor > cloakMajor) {
+            console.log(`[ChromeLauncher] Version mismatch: profile was Chrome ${lastMajor}, CloakBrowser is ${cloakMajor}. Cleaning session data.`);
+            versionMismatch = true;
+          }
+        } catch (err) {
+          // Cannot parse Local State — don't wipe, let CloakBrowser handle it
+          console.warn(`[ChromeLauncher] Could not parse Local State, skipping version check:`, err);
+        }
+      }
+
+      if (versionMismatch) {
+        // Only clean Sessions to prevent SIGTRAP from incompatible session data.
+        // Do NOT delete Local State — removing it causes CloakBrowser to
+        // re-initialize the entire profile, destroying cookies, history, and extensions.
+        const sessionsDir = path.join(defaultDir, 'Sessions');
+        if (fs.existsSync(sessionsDir)) {
+          try {
+            fs.rmSync(sessionsDir, { recursive: true, force: true });
+            console.log(`[ChromeLauncher] Cleaned incompatible session data`);
+          } catch (err) {
+            console.warn(`[ChromeLauncher] Failed to clean Sessions: ${err}`);
+          }
+        }
+      }
+    }
 
     const chromePath = this.resolveChromePath(options.browserVersion);
     console.log(`[ChromeLauncher] Launching profile ${profileId} with Chrome: ${chromePath}`);
@@ -229,6 +266,11 @@ export class ChromeLauncher {
       `--user-data-dir=${userDataDir}`,
       '--no-first-run',
       '--no-default-browser-check',
+      // Use portable password storage so cookies/credentials are not tied
+      // to the OS keychain (GNOME Keyring / KWallet / Keychain / DPAPI).
+      // This makes profile data portable across machines.
+      '--password-store=basic',
+      '--use-mock-keychain',
     ];
 
     if (!isCloakBrowser) {
@@ -248,7 +290,6 @@ export class ChromeLauncher {
 
     // Chrome for Testing binaries need --no-sandbox on Linux
     // and --disable-infobars to suppress the "Chrome for Testing" warning banner
-    // --test-type suppresses "unsupported command-line flag" warnings
     if (options.browserVersion && options.browserVersion !== 'system' && options.browserVersion !== 'latest') {
       args.push('--no-sandbox');
       args.push('--disable-infobars');
@@ -276,34 +317,12 @@ export class ChromeLauncher {
     // Skip for CloakBrowser when profile was previously used by a different Chrome version,
     // as incompatible session data causes SIGTRAP crash.
     if (!options.startupType || options.startupType === 'continue') {
-      if (!isCloakBrowser) {
+      if (!isCloakBrowser || !versionMismatch) {
         args.push('--restore-last-session');
       }
     }
 
     if (isCloakBrowser) {
-      // Chrome's profile data format is NOT backward-compatible.
-      // When a profile was previously opened by a newer Chrome (e.g. 146/147),
-      // CloakBrowser (Chromium 145) cannot read the data and crashes with SIGTRAP.
-      // We must wipe the Default directory and Local State to prevent this.
-      // This cleans caches, databases, and session data while allowing a fresh start.
-      const defaultDir = path.join(userDataDir, 'Default');
-      const localState = path.join(userDataDir, 'Local State');
-      for (const p of [defaultDir, localState]) {
-        if (fs.existsSync(p)) {
-          try {
-            const stat = fs.statSync(p);
-            if (stat.isDirectory()) {
-              fs.rmSync(p, { recursive: true, force: true });
-            } else {
-              fs.unlinkSync(p);
-            }
-            console.log(`[ChromeLauncher] Cleaned incompatible data: ${path.basename(p)}`);
-          } catch (err) {
-            console.warn(`[ChromeLauncher] Failed to clean: ${path.basename(p)}: ${err}`);
-          }
-        }
-      }
 
       const fp = options.fingerprintFlags || {};
       // Always set a fingerprint seed (random if not specified)
