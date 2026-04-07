@@ -56,6 +56,8 @@
       "selectedCount": "{{count}} đang chọn",
       "assignGroup": "Gán nhóm",
       "assignProxy": "Gán proxy",
+      "enableProxy": "Bật Proxy",
+      "disableProxy": "Tắt Proxy",
       "export": "Xuất",
       "delete": "Xóa",
       "loading": "Đang tải...",
@@ -105,7 +107,17 @@
       "moreOptions": "Thêm tùy chọn",
       "syncToCloud": "Đồng bộ lên Cloud",
       "syncFromCloud": "Đồng bộ từ Cloud",
-      "syncing": "Đang đồng bộ..."
+      "syncing": "Đang đồng bộ...",
+      "gridLaunch": {
+        "button": "Mở dạng Lưới",
+        "title": "Mở đa màn hình (Grid Launch)",
+        "description": "Mở {{count}} profile đã chọn vào các ô theo dạng lưới trên màn hình.",
+        "columns": "Số Cột",
+        "rows": "Số Hàng",
+        "preview": "Sức chứa lưới: {{capacity}} cửa sổ",
+        "warning": "Cảnh báo: Sức chứa của lưới ít hơn số profile bạn đang chọn.",
+        "launch": "Mở Trình Duyệt"
+      }
     },
     "settings": {
       "loading": "Đang tải cài đặt...",

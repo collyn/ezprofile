@@ -183,7 +183,13 @@ export function registerIpcHandlers(
   });
 
   // Chrome launcher
-  ipcMain.handle('chrome:launch', async (_event, id) => {
+  ipcMain.handle('chrome:focus', async (_event, id) => {
+    const profile = profileManager.getById(id);
+    if (!profile) return;
+    await chromeLauncher.focus(id, profile.user_data_dir, { browserVersion: profile.browser_version || 'system' });
+  });
+
+  ipcMain.handle('chrome:launch', async (_event, id, bounds) => {
     const profile = profileManager.getById(id);
     if (!profile) throw new Error('Profile not found');
     if (chromeLauncher.isRunning(id)) throw new Error('Profile is already running in this session');
@@ -217,6 +223,7 @@ export function registerIpcHandlers(
         startupUrls: profile.startup_urls || undefined,
         browserVersion: profile.browser_version || 'system',
         fingerprintFlags: fpFlags,
+        bounds: bounds,
       });
 
       profileManager.updateStatus(id, 'running');

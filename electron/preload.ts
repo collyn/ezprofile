@@ -58,8 +58,9 @@ const electronAPI = {
   importProfiles: (): Promise<{ success: boolean; count?: number; error?: string; canceled?: boolean }> => ipcRenderer.invoke('profile:import'),
   
   // Chrome operations
-  launchProfile: (id: string): Promise<void> => ipcRenderer.invoke('chrome:launch', id),
+  launchProfile: (id: string, bounds?: { x: number; y: number; width: number; height: number }): Promise<void> => ipcRenderer.invoke('chrome:launch', id, bounds),
   stopProfile: (id: string): Promise<void> => ipcRenderer.invoke('chrome:stop', id),
+  focusProfile: (id: string): Promise<void> => ipcRenderer.invoke('chrome:focus', id),
 
   // Proxy operations
   checkProxy: (type: string, host: string, port: number, user?: string, pass?: string): Promise<ProxyCheckResult> =>

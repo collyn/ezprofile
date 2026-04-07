@@ -46,6 +46,10 @@ import {
   Apple as AppleIcon,
   Terminal as TerminalIcon,
   ChevronDown as ChevronDownIcon,
+  LayoutGrid as LayoutGridIcon,
+  StopCircle as StopCircleIcon,
+  ToggleLeft as ToggleLeftIcon,
+  ToggleRight as ToggleRightIcon,
 } from 'lucide-react';
 
 export interface IconProps {
@@ -103,6 +107,10 @@ export {
   AppleIcon,
   TerminalIcon,
   ChevronDownIcon,
+  LayoutGridIcon,
+  StopCircleIcon,
+  ToggleLeftIcon,
+  ToggleRightIcon,
 };
 
 // --- Custom Icons ---

@@ -18,8 +18,9 @@ declare global {
       importProfiles: () => Promise<{ success: boolean; count?: number; error?: string; canceled?: boolean }>;
       
       // Chrome operations
-      launchProfile: (id: string) => Promise<void>;
+      launchProfile: (id: string, bounds?: { x: number; y: number; width: number; height: number }) => Promise<void>;
       stopProfile: (id: string) => Promise<void>;
+      focusProfile: (id: string) => Promise<void>;
 
       // Proxy operations
       checkProxy: (type: string, host: string, port: number, user?: string, pass?: string) => Promise<ProxyCheckResult>;

@@ -11,10 +11,11 @@ import BrowserVersionModal from '../components/BrowserVersionModal';
 import ProxyManagerModal from '../components/ProxyManagerModal';
 import SyncProfileModal from '../components/SyncProfileModal';
 import { PassphrasePromptModal } from '../components/PassphrasePromptModal';
+import GridLaunchModal from '../components/GridLaunchModal';
 import { getAPI } from '../api';
 import { useDialog } from '../contexts/DialogContext';
 import { useToast } from '../contexts/ToastContext';
-import { PlusIcon, GridIcon, ChromeIcon, ShieldIcon, DownloadIcon, FileUpIcon, SpinnerIcon, SearchIcon, UsersIcon, UploadIcon, CloudDownloadIcon, TrashIcon, EmptyStateIcon, MoreVerticalIcon, LockIcon } from '../components/Icons';
+import { PlusIcon, GridIcon, ChromeIcon, ShieldIcon, DownloadIcon, FileUpIcon, SpinnerIcon, SearchIcon, UsersIcon, UploadIcon, CloudDownloadIcon, TrashIcon, EmptyStateIcon, MoreVerticalIcon, LockIcon, LayoutGridIcon, StopCircleIcon, ToggleRightIcon, ToggleLeftIcon } from '../components/Icons';
 import CountryFlag, { countryCodeToFlag } from '../components/CountryFlag';
 
 interface ProfileListProps {
@@ -31,7 +32,7 @@ interface ProfileListProps {
   onImportCookies: (id: string) => void | Promise<void>;
   onDeleteProfile: (id: string) => Promise<void>;
   onDeleteProfiles: (ids: string[]) => Promise<void>;
-  onLaunchProfile: (id: string) => void | Promise<void>;
+  onLaunchProfile: (id: string, bounds?: any) => void | Promise<void>;
   onStopProfile: (id: string) => void | Promise<void>;
   onBackupProfile: (id: string) => void | Promise<void>;
   onRestoreProfile: (id: string) => void | Promise<void>;
@@ -84,6 +85,7 @@ export default function ProfileList({
   const [showBatchGroupModal, setShowBatchGroupModal] = useState(false);
   const [showBatchProxyModal, setShowBatchProxyModal] = useState(false);
   const [showBrowserVersionModal, setShowBrowserVersionModal] = useState(false);
+  const [showGridLaunchModal, setShowGridLaunchModal] = useState(false);
   const [showProxyManager, setShowProxyManager] = useState(false);
   const [editingProfile, setEditingProfile] = useState<ProfileData | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -232,6 +234,23 @@ export default function ProfileList({
     setSelectedIds(new Set());
   }, [selectedIds, onDeleteProfiles]);
 
+  const handleBatchStop = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const idsToStop = profiles.filter(p => selectedIds.has(p.id) && p.status === 'running').map(p => p.id);
+    if (idsToStop.length === 0) return;
+    for (const id of idsToStop) {
+      await onStopProfile(id);
+    }
+  }, [selectedIds, profiles, onStopProfile]);
+
+  const handleStopAll = useCallback(async () => {
+    const idsToStop = profiles.filter(p => p.status === 'running').map(p => p.id);
+    if (idsToStop.length === 0) return;
+    for (const id of idsToStop) {
+      await onStopProfile(id);
+    }
+  }, [profiles, onStopProfile]);
+
   const handleBatchSyncToCloud = useCallback(async (ids?: string[]) => {
     const targetIds = ids || Array.from(selectedIds);
     if (targetIds.length === 0) return;
@@ -302,6 +321,42 @@ export default function ProfileList({
     setSelectedIds(new Set());
   }, [selectedIds, addToast]);
 
+  const handleGridLaunch = useCallback(async (cols: number, rows: number, padding: number = 0) => {
+    const idsToLaunch = Array.from(selectedIds);
+    if (idsToLaunch.length === 0) return;
+
+    setShowGridLaunchModal(false);
+    
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Use availLeft and availTop for multi-monitor setups
+    const screenX = ('availLeft' in window.screen ? (window.screen as any).availLeft : 0) * dpr;
+    const screenY = ('availTop' in window.screen ? (window.screen as any).availTop : 0) * dpr;
+    
+    const screenWidth = window.screen.availWidth * dpr;
+    const screenHeight = window.screen.availHeight * dpr;
+
+    const windowWidth = Math.floor(screenWidth / cols);
+    const windowHeight = Math.floor(screenHeight / rows);
+
+    for (let i = 0; i < idsToLaunch.length; i++) {
+      const id = idsToLaunch[i];
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+
+      const bounds = {
+        x: (screenX + (col * windowWidth)) - padding,
+        y: (screenY + (row * windowHeight)) - padding,
+        width: windowWidth + (padding * 2),
+        height: windowHeight + (padding * 2),
+      };
+
+      onLaunchProfile(id, bounds);
+    }
+    
+    setSelectedIds(new Set());
+  }, [selectedIds, onLaunchProfile]);
+
   const SortIcon = ({ field }: { field: string }) => {
     if (sortField !== field) return null;
     return (
@@ -339,14 +394,20 @@ export default function ProfileList({
               {t('profiles.manageProxies')}
             </button>
             <div className="toolbar-separator" />
-            <button className="btn btn-outline btn-sm" onClick={() => onImportProfiles()}>
+            <button className="btn" onClick={() => onImportProfiles()}>
               <DownloadIcon />
               {t('profiles.importExcelJson')}
             </button>
-            <button className="btn btn-outline btn-sm" onClick={() => onExportProfiles()}>
+            <button className="btn" onClick={() => onExportProfiles()}>
               <FileUpIcon />
               {t('profiles.exportAll')}
             </button>
+            {profiles.some(p => p.status === 'running') && (
+              <button className="btn" onClick={handleStopAll}>
+                <StopCircleIcon />
+                {t('profiles.closeAll', 'Close All')}
+              </button>
+            )}
           </div>
 
           {isSyncing && (
@@ -371,46 +432,74 @@ export default function ProfileList({
               onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
-
-          {selectedIds.size > 0 && (
-            <>
-              <div className="toolbar-separator" />
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                {t('profiles.selectedCount', { count: selectedIds.size })}
-              </span>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowBatchGroupModal(true)}>
-                <UsersIcon />
-                {t('profiles.assignGroup')}
-              </button>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowBatchProxyModal(true)}>
-                <ShieldIcon />
-                {t('profiles.assignProxy')}
-              </button>
-              <button className="btn btn-outline btn-sm" onClick={() => onExportProfiles(Array.from(selectedIds))}>
-                <FileUpIcon />
-                {t('profiles.export')}
-              </button>
-              {cloudSyncEnabled && (
-                <>
-                  <div className="toolbar-separator" />
-                  <button className="btn btn-outline btn-sm" disabled={isSyncing} onClick={() => handleBatchSyncToCloud()}>
-                      <UploadIcon />
-                    {t('profiles.syncToCloud')}
-                  </button>
-                  <button className="btn btn-outline btn-sm" disabled={isSyncing} onClick={() => handleBatchSyncFromCloud()}>
-                      <CloudDownloadIcon />
-                    {t('profiles.syncFromCloud')}
-                  </button>
-                </>
-              )}
-              <div className="toolbar-separator" />
-              <button className="btn btn-danger btn-sm" onClick={handleBatchDelete}>
-                <TrashIcon />
-                {t('profiles.delete')}
-              </button>
-            </>
-          )}
         </div>
+
+        {/* Batch Actions Row 1 */}
+        {selectedIds.size > 0 && (
+          <div className="toolbar" style={{ marginTop: '4px' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {t('profiles.selectedCount', { count: selectedIds.size })}
+            </span>
+            <div className="toolbar-separator" />
+            <button className="btn btn-outline btn-sm" onClick={() => setShowBatchGroupModal(true)}>
+              <UsersIcon />
+              {t('profiles.assignGroup')}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowBatchProxyModal(true)}>
+              <ShieldIcon />
+              {t('profiles.assignProxy')}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={async () => {
+              await onUpdateProfiles(Array.from(selectedIds), { proxy_enabled: 1 });
+            }}>
+              <ToggleRightIcon />
+              {t('profiles.enableProxy', 'Enable Proxy')}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={async () => {
+              await onUpdateProfiles(Array.from(selectedIds), { proxy_enabled: 0 });
+            }}>
+              <ToggleLeftIcon />
+              {t('profiles.disableProxy', 'Disable Proxy')}
+            </button>
+            {Array.from(selectedIds).some(id => profiles.find(p => p.id === id)?.status === 'running') && (
+              <button className="btn btn-outline btn-sm" onClick={handleBatchStop}>
+                <StopCircleIcon />
+                {t('profiles.closeSelected', 'Close Selected')}
+              </button>
+            )}
+            <button className="btn btn-outline btn-sm" onClick={() => onExportProfiles(Array.from(selectedIds))}>
+              <FileUpIcon />
+              {t('profiles.export')}
+            </button>
+            {cloudSyncEnabled && (
+              <>
+                <div className="toolbar-separator" />
+                <button className="btn btn-outline btn-sm" disabled={isSyncing} onClick={() => handleBatchSyncToCloud()}>
+                    <UploadIcon />
+                  {t('profiles.syncToCloud')}
+                </button>
+                <button className="btn btn-outline btn-sm" disabled={isSyncing} onClick={() => handleBatchSyncFromCloud()}>
+                    <CloudDownloadIcon />
+                  {t('profiles.syncFromCloud')}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Batch Actions Row 2 */}
+        {selectedIds.size > 0 && (
+          <div className="toolbar" style={{ marginTop: '4px' }}>
+            <button className="btn btn-success btn-sm" onClick={() => setShowGridLaunchModal(true)}>
+              <LayoutGridIcon />
+              {t('profiles.gridLaunch.button', 'Grid Launch')}
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={handleBatchDelete}>
+              <TrashIcon />
+              {t('profiles.delete')}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -543,6 +632,15 @@ export default function ProfileList({
             await onUpdateProfiles(Array.from(selectedIds), proxyData as any);
             setShowBatchProxyModal(false);
           }}
+        />
+      )}
+
+      {/* Grid Launch Modal */}
+      {showGridLaunchModal && (
+        <GridLaunchModal
+          selectedCount={selectedIds.size}
+          onClose={() => setShowGridLaunchModal(false)}
+          onLaunch={handleGridLaunch}
         />
       )}
 
@@ -686,9 +784,14 @@ const ProfileRow = memo(function ProfileRow({
     <tr
       className={`${isSelected ? 'selected' : ''} ${profile.status === 'running' ? 'running' : ''}`}
       onContextMenu={(e) => onContextMenu(e, profile.id)}
+      onClick={() => {
+        if (profile.status === 'running') {
+          window.electronAPI.focusProfile(profile.id);
+        }
+      }}
     >
       <td>
-        <div className="checkbox">
+        <div className="checkbox" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -807,11 +910,11 @@ const ProfileRow = memo(function ProfileRow({
       </td>
       <td style={{ textAlign: 'center' }}>
         {profile.status === 'running' ? (
-          <button className="launch-btn stop" onClick={() => onStop(profile.id)}>
+          <button className="launch-btn stop" onClick={(e) => { e.stopPropagation(); onStop(profile.id); }}>
             {t('profiles.actionClose')}
           </button>
         ) : (
-          <button className="launch-btn start" onClick={() => onLaunch(profile.id)}>
+          <button className="launch-btn start" onClick={(e) => { e.stopPropagation(); onLaunch(profile.id); }}>
             {t('profiles.actionOpen')}
           </button>
         )}
@@ -820,7 +923,7 @@ const ProfileRow = memo(function ProfileRow({
         <div className="row-actions">
           <button
             className="action-btn"
-            onClick={(e) => onContextMenu(e, profile.id)}
+            onClick={(e) => { e.stopPropagation(); onContextMenu(e, profile.id); }}
             title={t('profiles.moreOptions')}
           >
             <MoreVerticalIcon />

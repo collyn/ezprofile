@@ -101,13 +101,14 @@ export const mockElectronAPI: typeof window.electronAPI = {
   },
   exportProfiles: async () => ({ success: true }),
   importProfiles: async () => ({ success: true, count: 0 }),
-  launchProfile: async (id) => {
+  launchProfile: async (id, _bounds) => {
     const idx = mockProfiles.findIndex((p) => p.id === id);
     if (idx >= 0) {
       mockProfiles[idx].status = 'running';
       mockProfiles[idx].last_run_at = new Date().toISOString().replace('Z', '');
     }
   },
+  focusProfile: async (id) => {},
   stopProfile: async (id) => {
     const idx = mockProfiles.findIndex((p) => p.id === id);
     if (idx >= 0) mockProfiles[idx].status = 'ready';

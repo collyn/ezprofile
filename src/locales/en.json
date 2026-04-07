@@ -56,6 +56,8 @@
       "selectedCount": "{{count}} selected",
       "assignGroup": "Assign Group",
       "assignProxy": "Assign Proxy",
+      "enableProxy": "Enable Proxy",
+      "disableProxy": "Disable Proxy",
       "export": "Export",
       "delete": "Delete",
       "loading": "Loading...",
@@ -105,7 +107,17 @@
       "moreOptions": "More options",
       "syncToCloud": "Sync to Cloud",
       "syncFromCloud": "Sync from Cloud",
-      "syncing": "Syncing..."
+      "syncing": "Syncing...",
+      "gridLaunch": {
+        "button": "Grid Launch",
+        "title": "Grid Launch",
+        "description": "Launch {{count}} selected profiles in a grid layout across your screen.",
+        "columns": "Columns",
+        "rows": "Rows",
+        "preview": "Grid capacity: {{capacity}} windows",
+        "warning": "Warning: Grid capacity is less than selected profiles.",
+        "launch": "Launch"
+      }
     },
     "settings": {
       "loading": "Loading settings...",

@@ -8,6 +8,7 @@ import { ProxyBridge } from './proxy-bridge';
 
 export class ChromeLauncher {
   private processes: Map<string, ChildProcess> = new Map();
+  private launchArgs: Map<string, string[]> = new Map();
   private proxyBridges: Map<string, ProxyBridge> = new Map();
   private profilesBaseDir: string;
   private customChromePath: string | null = null;
@@ -188,6 +189,7 @@ export class ChromeLauncher {
       startupUrls?: string;
       browserVersion?: string;
       fingerprintFlags?: Record<string, string>;
+      bounds?: { x: number; y: number; width: number; height: number };
     } = {}
   ): Promise<ChildProcess> {
     // Check if already running
@@ -427,6 +429,15 @@ export class ChromeLauncher {
       console.log(`[ChromeLauncher] CloakBrowser fingerprint seed: ${seed}`);
     }
 
+    // Add window boundaries for grid layout if provided
+    if (options.bounds) {
+      args.push(`--window-position=${Math.floor(options.bounds.x)},${Math.floor(options.bounds.y)}`);
+      args.push(`--window-size=${Math.floor(options.bounds.width)},${Math.floor(options.bounds.height)}`);
+    }
+
+    // Enable DevTools Protocol for programmatic focus (random port)
+    args.push('--remote-debugging-port=0');
+
     // Launch Chrome
     console.log(`[ChromeLauncher] Binary path: "${chromePath}"`);
     console.log(`[ChromeLauncher] Binary exists: ${fs.existsSync(chromePath)}`);
@@ -446,10 +457,12 @@ export class ChromeLauncher {
 
     child.unref();
     this.processes.set(profileId, child);
+    this.launchArgs.set(profileId, args);
 
     child.on('exit', (code) => {
       console.log(`[ChromeLauncher] Profile ${profileId} exited with code ${code}`);
       this.processes.delete(profileId);
+      this.launchArgs.delete(profileId);
       const bridge = this.proxyBridges.get(profileId);
       if (bridge) {
         bridge.stop();
@@ -510,6 +523,7 @@ export class ChromeLauncher {
     }
 
     this.processes.delete(profileId);
+    this.launchArgs.delete(profileId);
     
     const bridge = this.proxyBridges.get(profileId);
     if (bridge) {
@@ -518,6 +532,65 @@ export class ChromeLauncher {
     }
 
     return true;
+  }
+
+  async focus(
+    profileId: string,
+    userDataDir: string,
+    options: { browserVersion?: string; } = {}
+  ): Promise<void> {
+    if (!this.processes.has(profileId)) return;
+
+    let chromePath = '';
+    try {
+      chromePath = this.resolveChromePath(options.browserVersion);
+    } catch (e) {
+      return;
+    }
+
+    try {
+      const portFile = path.join(userDataDir, 'DevToolsActivePort');
+      if (fs.existsSync(portFile)) {
+        const portInfo = fs.readFileSync(portFile, 'utf8').split('\n');
+        const port = portInfo[0];
+        if (port) {
+          try {
+            const puppeteer = require('puppeteer-core');
+            const browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${port}` });
+            const pages = await browser.pages();
+            let focused = false;
+            // Iterate down to find a page to focus since some might be background pages
+            for (const page of pages) {
+              // @ts-ignore
+              const isVisible = await page.evaluate(() => typeof document !== 'undefined' && !document.hidden).catch(() => false);
+              if (isVisible || !focused) {
+                 await page.bringToFront().catch(() => {});
+                 focused = true;
+              }
+            }
+            browser.disconnect();
+            if (focused) {
+               console.log(`[ChromeLauncher] Focused profile ${profileId} via CDP`);
+               return; // CDP focus succeeded
+            }
+          } catch (cdpErr) {
+            console.warn(`[ChromeLauncher] Failed to focus via CDP, falling back to IPC:`, cdpErr);
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      // Fallback: Use the exact same arguments the profile was launched with.
+      // This works if ProcessSingleton is enabled, triggering IPC window focus.
+      const args = this.launchArgs.get(profileId) || [`--user-data-dir=${userDataDir}`];
+      spawn(chromePath, args, { detached: true, stdio: 'ignore' }).unref();
+      console.log(`[ChromeLauncher] Sent focus request to profile ${profileId} via IPC`);
+    } catch (e) {
+      console.error(`[ChromeLauncher] Failed to focus profile ${profileId}:`, e);
+    }
   }
 
   /**

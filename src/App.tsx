@@ -24,7 +24,7 @@ function App() {
   } | null>(null);
 
   const addToast = useCallback((type: string, message: string) => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, type, message }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -211,7 +211,7 @@ function App() {
   };
 
   // Password-gated handler wrappers
-  const handleLaunchProfileGated = (id: string) => withPasswordGate(id, () => handleLaunchProfile(id));
+  const handleLaunchProfileGated = (id: string, bounds?: any) => withPasswordGate(id, () => handleLaunchProfile(id, bounds));
   const handleCloneProfileGated = (id: string) => withPasswordGate(id, () => handleCloneProfile(id));
   const handleExportCookiesGated = (id: string) => withPasswordGate(id, () => handleExportCookies(id));
   const handleImportCookiesGated = (id: string) => withPasswordGate(id, () => handleImportCookies(id));
@@ -258,9 +258,9 @@ function App() {
     }
   };
 
-  const handleLaunchProfile = async (id: string) => {
+  const handleLaunchProfile = async (id: string, bounds?: any) => {
     try {
-      await api.launchProfile(id);
+      await api.launchProfile(id, bounds);
       setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'running' as const } : p)));
       addToast('success', t('app.toasts.launchSuccess'));
     } catch (err: any) {
