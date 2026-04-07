@@ -6,8 +6,15 @@ export interface ProxyCheckResult {
   success: boolean;
   ip?: string;
   country?: string;
+  countryCode?: string;
+  countryName?: string;
   latency?: number;
   error?: string;
+}
+
+export interface GeoIPResult {
+  countryCode: string;
+  countryName: string;
 }
 
 export class ProxyChecker {
@@ -33,9 +40,24 @@ export class ProxyChecker {
         // If IP check fails, still consider proxy alive
       }
 
+      // Try to look up country for the IP
+      let countryCode: string | undefined;
+      let countryName: string | undefined;
+      try {
+        const geo = await this.lookupCountry(ip);
+        if (geo) {
+          countryCode = geo.countryCode;
+          countryName = geo.countryName;
+        }
+      } catch {
+        // Country lookup is best-effort
+      }
+
       return {
         success: true,
         ip,
+        countryCode,
+        countryName,
         latency,
       };
     } catch (err: any) {
@@ -45,6 +67,35 @@ export class ProxyChecker {
         latency: Date.now() - startTime,
       };
     }
+  }
+
+  /**
+   * Look up country from an IP address using ip-api.com (free, no key needed, 45 req/min).
+   */
+  async lookupCountry(ip: string): Promise<GeoIPResult | null> {
+    return new Promise((resolve) => {
+      const req = http.get(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode`, {
+        timeout: 5000,
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.status === 'success' && json.countryCode) {
+              resolve({ countryCode: json.countryCode, countryName: json.country });
+            } else {
+              resolve(null);
+            }
+          } catch {
+            resolve(null);
+          }
+        });
+      });
+
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.on('error', () => resolve(null));
+    });
   }
 
   private tcpConnect(host: string, port: number, timeout: number): Promise<void> {
@@ -109,3 +160,4 @@ export class ProxyChecker {
     });
   }
 }
+

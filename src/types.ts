@@ -23,11 +23,12 @@ declare global {
 
       // Proxy operations
       checkProxy: (type: string, host: string, port: number, user?: string, pass?: string) => Promise<ProxyCheckResult>;
+      lookupProxyCountry: (ip: string) => Promise<{ countryCode: string; countryName: string } | null>;
 
       // Proxy list management
       getProxies: () => Promise<ProxyData[]>;
-      createProxy: (data: { name: string; type: string; host: string; port: number; username?: string; password?: string }) => Promise<ProxyData>;
-      updateProxy: (id: string, data: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string }) => Promise<ProxyData>;
+      createProxy: (data: { name: string; type: string; host: string; port: number; username?: string; password?: string; country_code?: string; country_name?: string }) => Promise<ProxyData>;
+      updateProxy: (id: string, data: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string; country_code?: string; country_name?: string }) => Promise<ProxyData>;
       deleteProxy: (id: string) => Promise<void>;
 
       // Cookie and Backup operations
@@ -71,6 +72,7 @@ declare global {
       onProfileStatusChanged: (callback: (profileId: string, status: string) => void) => void;
       onBackupProgress: (callback: (profileId: string, progress: string) => void) => void;
       onBrowserDownloadProgress: (callback: (version: string, percent: number, message: string) => void) => void;
+      onProxyUpdated: (callback: () => void) => void;
 
       // App & Updater
       getAppVersion: () => Promise<string>;
@@ -219,6 +221,8 @@ export interface ProxyCheckResult {
   success: boolean;
   ip?: string;
   country?: string;
+  countryCode?: string;
+  countryName?: string;
   latency?: number;
   error?: string;
 }
@@ -231,6 +235,8 @@ export interface ProxyData {
   port: number;
   username: string | null;
   password: string | null;
+  country_code: string | null;
+  country_name: string | null;
   created_at: string;
   updated_at: string;
 }

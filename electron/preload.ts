@@ -36,6 +36,8 @@ export interface ProxyCheckResult {
   success: boolean;
   ip?: string;
   country?: string;
+  countryCode?: string;
+  countryName?: string;
   latency?: number;
   error?: string;
 }
@@ -65,11 +67,13 @@ const electronAPI = {
 
   // Proxy list management
   getProxies: (): Promise<any[]> => ipcRenderer.invoke('proxy:getAll'),
-  createProxy: (data: { name: string; type: string; host: string; port: number; username?: string; password?: string }): Promise<any> =>
+  createProxy: (data: { name: string; type: string; host: string; port: number; username?: string; password?: string; country_code?: string; country_name?: string }): Promise<any> =>
     ipcRenderer.invoke('proxy:create', data),
-  updateProxy: (id: string, data: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string }): Promise<any> =>
+  updateProxy: (id: string, data: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string; country_code?: string; country_name?: string }): Promise<any> =>
     ipcRenderer.invoke('proxy:update', id, data),
   deleteProxy: (id: string): Promise<void> => ipcRenderer.invoke('proxy:delete', id),
+  lookupProxyCountry: (ip: string): Promise<{ countryCode: string; countryName: string } | null> =>
+    ipcRenderer.invoke('proxy:lookupCountry', ip),
 
   // Cookie and Backup operations
   importCookies: (profileId: string): Promise<{ success: boolean; error?: string; canceled?: boolean }> => ipcRenderer.invoke('cookie:import', profileId),
@@ -112,6 +116,10 @@ const electronAPI = {
   onProfileStatusChanged: (callback: (profileId: string, status: string) => void) => {
     ipcRenderer.removeAllListeners('profile:statusChanged');
     ipcRenderer.on('profile:statusChanged', (_event, profileId, status) => callback(profileId, status));
+  },
+  onProxyUpdated: (callback: () => void) => {
+    ipcRenderer.removeAllListeners('proxy:updated');
+    ipcRenderer.on('proxy:updated', () => callback());
   },
   onBackupProgress: (callback: (profileId: string, progress: string) => void) => {
     ipcRenderer.removeAllListeners('profile:backupProgress');

@@ -281,24 +281,82 @@ export function registerIpcHandlers(
 
   // Proxy operations
   ipcMain.handle('proxy:check', async (_event, type, host, port, user, pass) => {
-    return proxyChecker.check(type, host, port, user, pass);
+    const result = await proxyChecker.check(type, host, port, user, pass);
+    return result;
   });
 
   // Proxy list management
-  ipcMain.handle('proxy:getAll', () => {
-    return profileManager.getProxies();
+  ipcMain.handle('proxy:getAll', async () => {
+    const proxies = profileManager.getProxies();
+    
+    // Background backfill for proxies missing country codes
+    const missing = proxies.filter((p: any) => !p.country_code && p.host);
+    if (missing.length > 0) {
+      setTimeout(async () => {
+        for (const p of missing) {
+          try {
+            const geo = await proxyChecker.lookupCountry(p.host);
+            if (geo && geo.countryCode) {
+              profileManager.updateProxy(p.id, {
+                country_code: geo.countryCode,
+                country_name: geo.countryName,
+              });
+              // Send an event to frontend to reload proxies if needed
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('proxy:updated');
+              }
+            }
+          } catch {}
+        }
+      }, 1000);
+    }
+    
+    return proxies;
   });
 
-  ipcMain.handle('proxy:create', (_event, data) => {
-    return profileManager.createProxy(data);
+  ipcMain.handle('proxy:create', async (_event, data) => {
+    // Auto-lookup country for the proxy host (best-effort, non-blocking for UX)
+    let country_code: string | undefined;
+    let country_name: string | undefined;
+    try {
+      const geo = await proxyChecker.lookupCountry(data.host);
+      if (geo) {
+        country_code = geo.countryCode;
+        country_name = geo.countryName;
+      }
+    } catch {
+      // Country lookup is best-effort
+    }
+    const result = profileManager.createProxy({ ...data, country_code, country_name });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('proxy:updated');
+    }
+    return result;
   });
 
   ipcMain.handle('proxy:update', (_event, id, data) => {
-    return profileManager.updateProxy(id, data);
+    const result = profileManager.updateProxy(id, data);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('proxy:updated');
+    }
+    return result;
   });
 
   ipcMain.handle('proxy:delete', (_event, id) => {
     profileManager.deleteProxy(id);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('proxy:updated');
+    }
+  });
+
+  // Lookup country for a given IP/host (used by frontend for manual re-lookup)
+  ipcMain.handle('proxy:lookupCountry', async (_event, ip: string) => {
+    try {
+      const geo = await proxyChecker.lookupCountry(ip);
+      return geo || null;
+    } catch {
+      return null;
+    }
   });
 
   // Cookie operations

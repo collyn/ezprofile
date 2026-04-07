@@ -62,6 +62,29 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
 
     setSubmitting(true);
     try {
+      if (proxyEnabled && proxySource === 'custom' && proxyType && proxyHost && proxyPort) {
+        const portNum = parseInt(proxyPort, 10);
+        const exists = savedProxies.some(p => 
+          p.host === proxyHost && 
+          p.port === portNum && 
+          p.type === proxyType
+        );
+        if (!exists) {
+          try {
+            await api.createProxy({
+              name: `Custom ${proxyHost}`,
+              type: proxyType,
+              host: proxyHost,
+              port: portNum,
+              username: proxyUser || undefined,
+              password: proxyPass || undefined
+            });
+          } catch (err) {
+            console.error('Failed to auto-save custom proxy', err);
+          }
+        }
+      }
+
       if (batchMode) {
         const count = parseInt(batchCount, 10) || 1;
         for (let i = 1; i <= count; i++) {
@@ -195,7 +218,7 @@ export default function CreateProfileModal({ groups, onClose, onCreate }: Create
             )}
 
             {/* Proxy section */}
-            <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ marginTop: 16, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
                 {t('profileForm.proxyOptional')}
               </label>

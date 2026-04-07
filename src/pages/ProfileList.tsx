@@ -15,6 +15,7 @@ import { getAPI } from '../api';
 import { useDialog } from '../contexts/DialogContext';
 import { useToast } from '../contexts/ToastContext';
 import { PlusIcon, GridIcon, ChromeIcon, ShieldIcon, DownloadIcon, FileUpIcon, SpinnerIcon, SearchIcon, UsersIcon, UploadIcon, CloudDownloadIcon, TrashIcon, EmptyStateIcon, MoreVerticalIcon, LockIcon } from '../components/Icons';
+import CountryFlag, { countryCodeToFlag } from '../components/CountryFlag';
 
 interface ProfileListProps {
   profiles: ProfileData[];
@@ -114,6 +115,11 @@ export default function ProfileList({
 
   useEffect(() => {
     fetchProxies();
+    if (getAPI().onProxyUpdated) {
+      getAPI().onProxyUpdated(() => {
+        fetchProxies();
+      });
+    }
   }, []);
 
   // Check if cloud sync provider is configured
@@ -727,7 +733,8 @@ const ProfileRow = memo(function ProfileRow({
             }} />
           </div>
           {profile.proxy_enabled ? (
-            <select
+            <>
+              <select
               value={currentProxyId}
               onChange={(e) => {
                 const val = e.target.value;
@@ -757,12 +764,16 @@ const ProfileRow = memo(function ProfileRow({
               onClick={(e) => e.stopPropagation()}
             >
               <option value="" disabled style={{ color: 'var(--text-muted)' }}>{t('profileForm.selectProxy', 'Select Proxy...')}</option>
-              {savedProxies.map((p) => (
-                <option key={p.id} value={p.id} style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                  {p.name} ({p.host}:{p.port})
-                </option>
-              ))}
+              {savedProxies.map((p) => {
+                const flag = p.country_code ? countryCodeToFlag(p.country_code) + ' ' : '';
+                return (
+                  <option key={p.id} value={p.id} style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                    {flag}{p.host}:{p.port}
+                  </option>
+                );
+              })}
             </select>
+            </>
           ) : (
             <span style={{ opacity: 0.4 }}>
               <span className="proxy-dot no-proxy" />

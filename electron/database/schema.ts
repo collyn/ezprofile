@@ -99,5 +99,20 @@ export function initDatabase(dbPath: string): Database.Database {
     console.error('Database migration failed:', error);
   }
 
+  // Proxy table migrations
+  try {
+    const proxyCols = db.prepare("PRAGMA table_info('proxies')").all() as { name: string }[];
+    const proxyColNames = proxyCols.map((c) => c.name);
+
+    if (!proxyColNames.includes('country_code')) {
+      db.exec('ALTER TABLE proxies ADD COLUMN country_code TEXT');
+    }
+    if (!proxyColNames.includes('country_name')) {
+      db.exec('ALTER TABLE proxies ADD COLUMN country_name TEXT');
+    }
+  } catch (error) {
+    console.error('Proxy table migration failed:', error);
+  }
+
   return db;
 }

@@ -328,15 +328,15 @@ export class ProfileManager {
     return this.db.prepare('SELECT * FROM proxies ORDER BY created_at DESC').all();
   }
 
-  createProxy(input: { name: string; type: string; host: string; port: number; username?: string; password?: string }): any {
+  createProxy(input: { name: string; type: string; host: string; port: number; username?: string; password?: string; country_code?: string; country_name?: string }): any {
     const id = uuidv4();
     this.db.prepare(
-      `INSERT INTO proxies (id, name, type, host, port, username, password) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(id, input.name, input.type, input.host, input.port, input.username || null, input.password || null);
+      `INSERT INTO proxies (id, name, type, host, port, username, password, country_code, country_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, input.name, input.type, input.host, input.port, input.username || null, input.password || null, input.country_code || null, input.country_name || null);
     return this.db.prepare('SELECT * FROM proxies WHERE id = ?').get(id);
   }
 
-  updateProxy(id: string, input: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string }): any {
+  updateProxy(id: string, input: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string; country_code?: string; country_name?: string }): any {
     const fields: string[] = [];
     const values: any[] = [];
 

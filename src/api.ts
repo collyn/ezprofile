@@ -118,6 +118,7 @@ export const mockElectronAPI: typeof window.electronAPI = {
     const proxy: ProxyData = {
       id: `proxy-${Date.now()}`, ...data,
       username: data.username || null, password: data.password || null,
+      country_code: data.country_code || null, country_name: data.country_name || null,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     };
     mockProxies.unshift(proxy);
@@ -132,6 +133,7 @@ export const mockElectronAPI: typeof window.electronAPI = {
     const idx = mockProxies.findIndex(p => p.id === id);
     if (idx >= 0) mockProxies.splice(idx, 1);
   },
+  lookupProxyCountry: async () => null,
   importCookies: async () => ({ success: true }),
   exportCookies: async () => ({ success: true }),
   backupProfile: async () => ({ success: true }),
@@ -167,6 +169,7 @@ export const mockElectronAPI: typeof window.electronAPI = {
   onProfileStatusChanged: () => {},
   onBackupProgress: () => {},
   onBrowserDownloadProgress: () => {},
+  onProxyUpdated: () => {},
 
   // App & Updater
   getAppVersion: async () => '1.0.0 (Web)',

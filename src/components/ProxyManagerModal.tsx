@@ -4,6 +4,7 @@ import { ProxyData } from '../types';
 import { getAPI } from '../api';
 import { useDialog } from '../contexts/DialogContext';
 import { CheckCircleIcon, XCircleIcon, TrashIcon, EditIcon, DownloadIcon, ClipboardIcon, XIcon } from './Icons';
+import CountryFlag from './CountryFlag';
 
 const api = getAPI();
 
@@ -115,6 +116,14 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
       );
       if (result.success) {
         setCheckResults(prev => ({ ...prev, [proxy.id]: { status: 'live', info: `IP: ${result.ip}` } }));
+        // If we got country info from the check, save it to the proxy
+        if (result.countryCode) {
+          await api.updateProxy(proxy.id, {
+            country_code: result.countryCode,
+            country_name: result.countryName || undefined,
+          });
+          await loadProxies();
+        }
       } else {
         setCheckResults(prev => ({ ...prev, [proxy.id]: { status: 'error', info: result.error } }));
       }
@@ -395,6 +404,7 @@ export default function ProxyManagerModal({ onClose }: ProxyManagerModalProps) {
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <CountryFlag code={proxy.country_code} name={proxy.country_name} size={16} />
                           <span style={{ fontSize: 13, fontWeight: 600 }}>{proxy.name}</span>
                           <span style={{
                             fontSize: 10,
