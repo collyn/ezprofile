@@ -63,6 +63,11 @@ function App() {
       addToast('info', t('app.toasts.backupRestore', { progress }));
     });
 
+    // Listen for update available (auto-check on startup)
+    api.onUpdateAvailable((info) => {
+      addToast('info', t('settings.appInfo.updateAvailableToast', { version: info.version }));
+    });
+
     // Periodic polling to sync profile status across RDP sessions
     const pollInterval = setInterval(() => {
       loadProfiles();

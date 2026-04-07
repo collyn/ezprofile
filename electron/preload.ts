@@ -91,6 +91,8 @@ const electronAPI = {
   selectProfilesDir: (): Promise<string | null> => ipcRenderer.invoke('settings:selectProfilesDir'),
   settingsExportBackup: (password: string): Promise<{ success: boolean, canceled?: boolean, error?: string }> => ipcRenderer.invoke('settings:exportBackup', password),
   settingsImportBackup: (password: string): Promise<{ success: boolean, canceled?: boolean, error?: string }> => ipcRenderer.invoke('settings:importBackup', password),
+  getCheckUpdateOnStartup: (): Promise<boolean> => ipcRenderer.invoke('settings:getCheckUpdateOnStartup'),
+  setCheckUpdateOnStartup: (enabled: boolean): Promise<void> => ipcRenderer.invoke('settings:setCheckUpdateOnStartup', enabled),
 
   // Browser version management
   getAvailableBrowserVersions: () => ipcRenderer.invoke('browser:getAvailable'),

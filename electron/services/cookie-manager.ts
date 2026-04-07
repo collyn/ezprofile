@@ -1,12 +1,159 @@
 import puppeteer from 'puppeteer-core';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { Profile } from './profile-manager';
 import { ChromeLauncher } from './chrome-launcher';
+import { BrowserVersionManager } from './browser-version-manager';
 import { PortableCookie } from './chrome-cookie-crypto';
 
+// Session-critical files/directories that Puppeteer's headless Chrome will overwrite.
+// We back these up before launching Puppeteer and restore them afterwards.
+const SESSION_FILES = [
+  'Current Session',
+  'Current Tabs',
+  'Last Session',
+  'Last Tabs',
+  'Preferences',
+  'Secure Preferences',
+];
+const SESSION_DIRS = ['Sessions'];
+
 export class CookieManager {
+  private browserVersionManager: BrowserVersionManager | null = null;
+
   constructor(private chromeLauncher: ChromeLauncher) {}
+
+  setBrowserVersionManager(manager: BrowserVersionManager): void {
+    this.browserVersionManager = manager;
+  }
+
+  /**
+   * Resolve the correct Chrome binary for a profile.
+   * Uses the profile's browser_version setting when available (e.g. CloakBrowser),
+   * otherwise falls back to the system Chrome.
+   */
+  private resolveChromePath(profile: Profile): string {
+    const version = profile.browser_version;
+    if (version && version !== 'system' && version !== 'latest' && this.browserVersionManager) {
+      const binaryPath = this.browserVersionManager.getChromeBinaryPath(version);
+      if (fs.existsSync(binaryPath)) {
+        console.log(`[CookieManager] Using profile browser: ${version} → ${binaryPath}`);
+        return binaryPath;
+      }
+      console.warn(`[CookieManager] Browser version ${version} not found at ${binaryPath}, falling back to system`);
+    }
+    const systemPath = this.chromeLauncher.getChromePath();
+    console.log(`[CookieManager] Using system Chrome: ${systemPath}`);
+    return systemPath;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Session preservation helpers
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Back up session-critical files before Puppeteer touches the profile.
+   * Returns the temp directory path (caller must pass it to restoreSession).
+   */
+  private backupSession(userDataDir: string): string | null {
+    const defaultDir = path.join(userDataDir, 'Default');
+    if (!fs.existsSync(defaultDir)) return null;
+
+    const tmpDir = path.join(os.tmpdir(), `ezp_session_${Date.now()}`);
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    let anyBackedUp = false;
+
+    // Backup files
+    for (const file of SESSION_FILES) {
+      const src = path.join(defaultDir, file);
+      if (fs.existsSync(src)) {
+        try {
+          fs.copyFileSync(src, path.join(tmpDir, file));
+          anyBackedUp = true;
+        } catch {}
+      }
+    }
+
+    // Backup directories
+    for (const dir of SESSION_DIRS) {
+      const src = path.join(defaultDir, dir);
+      if (fs.existsSync(src)) {
+        try {
+          this.copyDirSync(src, path.join(tmpDir, dir));
+          anyBackedUp = true;
+        } catch {}
+      }
+    }
+
+    if (!anyBackedUp) {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      return null;
+    }
+
+    console.log(`[CookieManager] Session data backed up to ${tmpDir}`);
+    return tmpDir;
+  }
+
+  /**
+   * Restore session-critical files after Puppeteer exits.
+   */
+  private restoreSession(userDataDir: string, tmpDir: string | null): void {
+    if (!tmpDir) return;
+
+    const defaultDir = path.join(userDataDir, 'Default');
+    if (!fs.existsSync(defaultDir)) {
+      fs.mkdirSync(defaultDir, { recursive: true });
+    }
+
+    // Restore files
+    for (const file of SESSION_FILES) {
+      const src = path.join(tmpDir, file);
+      if (fs.existsSync(src)) {
+        try {
+          fs.copyFileSync(src, path.join(defaultDir, file));
+        } catch {}
+      }
+    }
+
+    // Restore directories
+    for (const dir of SESSION_DIRS) {
+      const src = path.join(tmpDir, dir);
+      if (fs.existsSync(src)) {
+        const dest = path.join(defaultDir, dir);
+        try {
+          // Remove the version Puppeteer wrote, then restore original
+          if (fs.existsSync(dest)) {
+            fs.rmSync(dest, { recursive: true, force: true });
+          }
+          this.copyDirSync(src, dest);
+        } catch {}
+      }
+    }
+
+    // Clean up temp dir
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    console.log(`[CookieManager] Session data restored`);
+  }
+
+  private copyDirSync(src: string, dest: string): void {
+    fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+      if (entry.isDirectory()) {
+        this.copyDirSync(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Public API
+  // ─────────────────────────────────────────────────────────────
 
   async exportCookies(profile: Profile, filePath: string): Promise<void> {
     const isRunning = this.chromeLauncher.isRunning(profile.id);
@@ -14,8 +161,10 @@ export class CookieManager {
       throw new Error("Please close the profile browser before exporting cookies!");
     }
 
+    const sessionBackup = this.backupSession(profile.user_data_dir);
+
     const browser = await puppeteer.launch({
-      executablePath: this.chromeLauncher.getChromePath(),
+      executablePath: this.resolveChromePath(profile),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
       ignoreDefaultArgs: ['--enable-automation'],
@@ -37,6 +186,7 @@ export class CookieManager {
       fs.writeFileSync(filePath, JSON.stringify(cookies, null, 2), 'utf-8');
     } finally {
       await browser.close();
+      this.restoreSession(profile.user_data_dir, sessionBackup);
     }
   }
 
@@ -51,8 +201,10 @@ export class CookieManager {
 
     console.log(`[CookieManager] Extracting cookies via CDP for profile ${profile.id}`);
 
+    const sessionBackup = this.backupSession(profile.user_data_dir);
+
     const browser = await puppeteer.launch({
-      executablePath: this.chromeLauncher.getChromePath(),
+      executablePath: this.resolveChromePath(profile),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
       ignoreDefaultArgs: ['--enable-automation'],
@@ -94,6 +246,7 @@ export class CookieManager {
       return portable;
     } finally {
       await browser.close();
+      this.restoreSession(profile.user_data_dir, sessionBackup);
     }
   }
 
@@ -154,8 +307,10 @@ export class CookieManager {
       return param;
     });
 
+    const sessionBackup = this.backupSession(profile.user_data_dir);
+
     const browser = await puppeteer.launch({
-      executablePath: this.chromeLauncher.getChromePath(),
+      executablePath: this.resolveChromePath(profile),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
       ignoreDefaultArgs: ['--enable-automation'],
@@ -174,6 +329,7 @@ export class CookieManager {
       await new Promise(resolve => setTimeout(resolve, 2000));
     } finally {
       await browser.close();
+      this.restoreSession(profile.user_data_dir, sessionBackup);
     }
   }
 
@@ -209,8 +365,12 @@ export class CookieManager {
       return param;
     });
 
+    // Preserve session data from the freshly extracted backup.
+    // Chrome headless will overwrite Preferences/Sessions when it runs.
+    const sessionBackup = this.backupSession(profile.user_data_dir);
+
     const browser = await puppeteer.launch({
-      executablePath: this.chromeLauncher.getChromePath(),
+      executablePath: this.resolveChromePath(profile),
       userDataDir: profile.user_data_dir,
       headless: 'new' as any,
       ignoreDefaultArgs: ['--enable-automation'],
@@ -231,6 +391,14 @@ export class CookieManager {
       console.log(`[CookieManager] Successfully imported ${cookies.length} portable cookies`);
     } finally {
       await browser.close();
+      this.restoreSession(profile.user_data_dir, sessionBackup);
+
+      // Remove Sync Data that headless Chrome may have created
+      const defaultDir = path.join(profile.user_data_dir, 'Default');
+      const syncDataDir = path.join(defaultDir, 'Sync Data');
+      if (fs.existsSync(syncDataDir)) {
+        try { fs.rmSync(syncDataDir, { recursive: true, force: true }); } catch {}
+      }
     }
   }
 }

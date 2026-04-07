@@ -29,8 +29,8 @@ import { WebContents } from 'electron';
 const MAGIC = Buffer.from('EZPS');
 const FORMAT_VERSION = 0x01;
 
-const IGNORE_FOLDERS = ['Cache', 'Code Cache', 'GPUCache', 'Service Worker/CacheStorage'];
-const IGNORE_FILES = ['SingletonLock', 'SingletonSocket', 'SingletonCookie'];
+const IGNORE_FOLDERS = ['Cache', 'Code Cache', 'GPUCache', 'Service Worker/CacheStorage', 'Sync Data', 'BrowserMetrics', 'ShaderCache', 'GrShaderCache', 'GraphiteDawnCache'];
+const IGNORE_FILES = ['SingletonLock', 'SingletonSocket', 'SingletonCookie', 'DevToolsActivePort'];
 
 export interface CloudBackupEntry {
   id: string;
@@ -73,11 +73,25 @@ export class BackupManager {
    */
   private async reimportPortableCookies(profile: Profile): Promise<void> {
     const portable = readPortableCookies(profile.user_data_dir);
-    if (!portable || portable.cookies.length === 0) return;
+    if (!portable || portable.cookies.length === 0) {
+      removePortableCookies(profile.user_data_dir);
+      return;
+    }
 
-    // Always re-import cookies — the backup was made with decrypted values that
-    // need to be injected via CDP so Chrome encrypts them with the local key.
-    console.log(`[BackupManager] Re-importing ${portable.cookies.length} portable cookies (source: ${portable.platform})`);
+    const currentPlatform = os.platform();
+    const sourcePlatform = portable.platform;
+
+    // Same platform → the Cookies DB in the backup is already encrypted with a
+    // compatible key (--password-store=basic uses a hardcoded key on the same OS).
+    // No need to launch Chrome headless for reimport — just keep the existing DB.
+    if (sourcePlatform === currentPlatform) {
+      console.log(`[BackupManager] Same platform restore (${sourcePlatform}) — keeping existing Cookies DB, skipping CDP reimport`);
+      removePortableCookies(profile.user_data_dir);
+      return;
+    }
+
+    // Cross-platform restore — need CDP to re-encrypt cookies with the local key
+    console.log(`[BackupManager] Cross-platform restore (${sourcePlatform} → ${currentPlatform}) — re-importing ${portable.cookies.length} cookies via CDP`);
 
     if (!this.cookieManager) {
       console.warn('[BackupManager] CookieManager not set, cannot re-import portable cookies');

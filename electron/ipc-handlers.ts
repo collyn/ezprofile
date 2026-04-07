@@ -61,6 +61,19 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('profile:create', (_event, data) => {
+    // Auto-generate a fingerprint seed for CloakBrowser profiles so each profile
+    // gets a unique, stable fingerprint that persists across launches and backup/restore.
+    if (data.browser_version && browserVersionManager.isCloakBrowserVersion(data.browser_version)) {
+      let fpFlags: Record<string, string> = {};
+      if (data.fingerprint_flags) {
+        try { fpFlags = JSON.parse(data.fingerprint_flags); } catch {}
+      }
+      if (!fpFlags.seed) {
+        const crypto = require('crypto');
+        fpFlags.seed = crypto.randomInt(100000, 999999999).toString();
+        data.fingerprint_flags = JSON.stringify(fpFlags);
+      }
+    }
     return profileManager.create(data);
   });
 
@@ -73,7 +86,19 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('profile:clone', async (_event, id) => {
-    return profileManager.clone(id);
+    const cloned = profileManager.clone(id);
+    // Generate a new unique fingerprint seed for the clone so it has its own identity
+    if (cloned.browser_version && browserVersionManager.isCloakBrowserVersion(cloned.browser_version)) {
+      let fpFlags: Record<string, string> = {};
+      if (cloned.fingerprint_flags) {
+        try { fpFlags = JSON.parse(cloned.fingerprint_flags); } catch {}
+      }
+      const crypto = require('crypto');
+      fpFlags.seed = crypto.randomInt(100000, 999999999).toString();
+      profileManager.update(cloned.id, { fingerprint_flags: JSON.stringify(fpFlags) });
+      console.log(`[IPC] Generated new fingerprint seed ${fpFlags.seed} for cloned profile ${cloned.id}`);
+    }
+    return profileManager.getById(cloned.id)!;
   });
 
   // Password management
@@ -163,8 +188,25 @@ export function registerIpcHandlers(
     if (!profile) throw new Error('Profile not found');
     if (chromeLauncher.isRunning(id)) throw new Error('Profile is already running in this session');
 
+    // Parse fingerprint flags once; auto-generate seed if CloakBrowser profile lacks one.
+    // This is a fallback for profiles created before auto-seed was added to profile:create.
+    let fpFlags: Record<string, string> | undefined;
+    const isCB = browserVersionManager.isCloakBrowserVersion(profile.browser_version || '');
+    if (isCB) {
+      fpFlags = profile.fingerprint_flags ? JSON.parse(profile.fingerprint_flags) : {};
+      if (!fpFlags!.seed) {
+        const crypto = require('crypto');
+        fpFlags!.seed = crypto.randomInt(100000, 999999999).toString();
+        // Persist the generated seed so future launches use the same fingerprint
+        profileManager.update(id, { fingerprint_flags: JSON.stringify(fpFlags) });
+        console.log(`[IPC] Auto-generated fingerprint seed ${fpFlags!.seed} for profile ${id}`);
+      }
+    } else if (profile.fingerprint_flags) {
+      fpFlags = JSON.parse(profile.fingerprint_flags);
+    }
+
     try {
-      const child = chromeLauncher.launch(id, profile.user_data_dir, {
+      const child = await chromeLauncher.launch(id, profile.user_data_dir, {
         proxyType: profile.proxy_enabled ? (profile.proxy_type || undefined) : undefined,
         proxyHost: profile.proxy_enabled ? (profile.proxy_host || undefined) : undefined,
         proxyPort: profile.proxy_enabled ? (profile.proxy_port || undefined) : undefined,
@@ -174,7 +216,7 @@ export function registerIpcHandlers(
         startupType: profile.startup_type || 'continue',
         startupUrls: profile.startup_urls || undefined,
         browserVersion: profile.browser_version || 'system',
-        fingerprintFlags: profile.fingerprint_flags ? JSON.parse(profile.fingerprint_flags) : undefined,
+        fingerprintFlags: fpFlags,
       });
 
       profileManager.updateStatus(id, 'running');
@@ -365,6 +407,17 @@ export function registerIpcHandlers(
     });
     if (canceled || filePaths.length === 0) return null;
     return filePaths[0];
+  });
+
+  // Check Update on Startup setting
+  ipcMain.handle('settings:getCheckUpdateOnStartup', () => {
+    const val = profileManager.getSetting('check_update_on_startup');
+    // Default to true if never set
+    return val === null || val === undefined ? true : val === 'true';
+  });
+
+  ipcMain.handle('settings:setCheckUpdateOnStartup', (_event, enabled: boolean) => {
+    profileManager.setSetting('check_update_on_startup', enabled ? 'true' : 'false');
   });
 
 

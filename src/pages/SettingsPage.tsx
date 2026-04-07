@@ -32,6 +32,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [isImportingSettings, setIsImportingSettings] = useState(false);
   const [settingsPassword, setSettingsPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
+  const [checkUpdateOnStartup, setCheckUpdateOnStartup] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -53,6 +54,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       }
     };
     load();
+
+    // Load check update on startup setting
+    api.getCheckUpdateOnStartup().then(val => setCheckUpdateOnStartup(val));
 
     // Listen for updater events
     api.onUpdaterChecking(() => {
@@ -451,6 +455,34 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               </button>
             </div>
           )}
+
+          {/* Check update on startup toggle */}
+          <div style={{
+            marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+                {t('settings.appInfo.checkUpdateOnStartup')}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {t('settings.appInfo.checkUpdateOnStartupDesc')}
+              </div>
+            </div>
+            <label className="toggle-switch" style={{ flexShrink: 0, marginLeft: 16 }}>
+              <input
+                type="checkbox"
+                checked={checkUpdateOnStartup}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setCheckUpdateOnStartup(val);
+                  api.setCheckUpdateOnStartup(val);
+                  showSaved();
+                }}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
         </div>
       </section>
 

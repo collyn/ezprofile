@@ -50,6 +50,8 @@ declare global {
       selectProfilesDir: () => Promise<string | null>;
       settingsExportBackup: (password: string) => Promise<{ success: boolean, canceled?: boolean, error?: string }>;
       settingsImportBackup: (password: string) => Promise<{ success: boolean, canceled?: boolean, error?: string }>;
+      getCheckUpdateOnStartup: () => Promise<boolean>;
+      setCheckUpdateOnStartup: (enabled: boolean) => Promise<void>;
 
       // Browser version management
       getAvailableBrowserVersions: () => Promise<ChromeVersionInfo[]>;

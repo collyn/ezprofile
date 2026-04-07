@@ -101,6 +101,20 @@ export default function ProfileList({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [isSyncing, setIsSyncing] = useState(false);
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
+  const [savedProxies, setSavedProxies] = useState<any[]>([]);
+
+  const fetchProxies = async () => {
+    try {
+      const data = await getAPI().getProxies();
+      setSavedProxies(data);
+    } catch (err) {
+      console.error('Failed to fetch proxies:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProxies();
+  }, []);
 
   // Check if cloud sync provider is configured
   useEffect(() => {
@@ -450,11 +464,13 @@ export default function ProfileList({
                   profile={profile}
                   isSelected={selectedIds.has(profile.id)}
                   groupColor={profile.group_name ? groupColorMap[profile.group_name] : undefined}
+                  savedProxies={savedProxies}
                   onSelect={handleSelectOne}
                   onContextMenu={handleContextMenu}
                   onLaunch={onLaunchProfile}
                   onStop={onStopProfile}
                   onToggleProxy={(id, enabled) => onUpdateProfile(id, { proxy_enabled: enabled ? 1 : 0 })}
+                  onChangeProxy={(id, p) => onUpdateProfile(id, p)}
                 />
               ))}
             </tbody>
@@ -634,22 +650,32 @@ const ProfileRow = memo(function ProfileRow({
   profile,
   isSelected,
   groupColor,
+  savedProxies,
   onSelect,
   onContextMenu,
   onLaunch,
   onStop,
   onToggleProxy,
+  onChangeProxy,
 }: {
   profile: ProfileData;
   isSelected: boolean;
   groupColor?: string;
+  savedProxies: any[];
   onSelect: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   onLaunch: (id: string) => void;
   onStop: (id: string) => void;
   onToggleProxy: (id: string, enabled: boolean) => void;
+  onChangeProxy: (id: string, p: Partial<CreateProfileInput>) => void;
 }) {
   const { t, i18n } = useTranslation();
+
+  // Deduce selected proxy ID if it perfectly matches a saved proxy
+  const currentProxyId = profile.proxy_host 
+    ? savedProxies.find(p => p.host === profile.proxy_host && p.port === profile.proxy_port)?.id || ""
+    : "";
+
   return (
     <tr
       className={`${isSelected ? 'selected' : ''} ${profile.status === 'running' ? 'running' : ''}`}
@@ -700,11 +726,43 @@ const ProfileRow = memo(function ProfileRow({
               top: 2, left: profile.proxy_enabled ? 14 : 2, transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
             }} />
           </div>
-          {profile.proxy_host ? (
-            <span style={{ opacity: profile.proxy_enabled ? 1 : 0.4 }}>
-              <span className={`proxy-dot ${profile.proxy_host ? 'has-proxy' : 'no-proxy'}`} />
-              {`${profile.proxy_host}:${profile.proxy_port}`}
-            </span>
+          {profile.proxy_enabled ? (
+            <select
+              value={currentProxyId}
+              onChange={(e) => {
+                const val = e.target.value;
+                const p = savedProxies.find(x => x.id === val);
+                if (p) {
+                   onChangeProxy(profile.id, {
+                     proxy_type: p.type,
+                     proxy_host: p.host,
+                     proxy_port: p.port,
+                     proxy_user: p.username || undefined,
+                     proxy_pass: p.password || undefined
+                   });
+                }
+              }}
+              disabled={profile.status === 'running'}
+              style={{ 
+                fontSize: 11, 
+                background: 'var(--bg-secondary)', 
+                color: 'var(--text-primary)', 
+                border: '1px solid var(--border-color)', 
+                borderRadius: 4, 
+                padding: '3px 6px', 
+                maxWidth: '180px',
+                outline: 'none',
+                cursor: profile.status === 'running' ? 'not-allowed' : 'pointer'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <option value="" disabled style={{ color: 'var(--text-muted)' }}>{t('profileForm.selectProxy', 'Select Proxy...')}</option>
+              {savedProxies.map((p) => (
+                <option key={p.id} value={p.id} style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                  {p.name} ({p.host}:{p.port})
+                </option>
+              ))}
+            </select>
           ) : (
             <span style={{ opacity: 0.4 }}>
               <span className="proxy-dot no-proxy" />

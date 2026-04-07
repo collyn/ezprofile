@@ -41,6 +41,11 @@ import {
   Users as UsersIcon,
   MoreVertical as MoreVerticalIcon,
   PlusCircle as LogoIcon,
+  Monitor,
+  Laptop as LaptopIcon,
+  Apple as AppleIcon,
+  Terminal as TerminalIcon,
+  ChevronDown as ChevronDownIcon,
 } from 'lucide-react';
 
 export interface IconProps {
@@ -92,7 +97,12 @@ export {
   SearchIcon,
   UsersIcon,
   MoreVerticalIcon,
-  LogoIcon
+  LogoIcon,
+  Monitor,
+  LaptopIcon,
+  AppleIcon,
+  TerminalIcon,
+  ChevronDownIcon,
 };
 
 // --- Custom Icons ---

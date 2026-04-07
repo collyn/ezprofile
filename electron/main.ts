@@ -91,6 +91,7 @@ function createWindow() {
 
   const browserVersionManager = new BrowserVersionManager();
   chromeLauncher.setBrowserVersionManager(browserVersionManager);
+  cookieManager.setBrowserVersionManager(browserVersionManager);
 
   // Register IPC handlers
   registerIpcHandlers(ipcMain, profileManager, chromeLauncher, proxyChecker, cookieManager, backupManager, browserVersionManager, mainWindow, encryptionSvc, gdriveService, s3Service, syncScheduler);
@@ -102,6 +103,20 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Auto-check for updates on startup (if enabled)
+  mainWindow.webContents.once('did-finish-load', () => {
+    const checkOnStartup = profileManager.getSetting('check_update_on_startup');
+    // Default to true if never set
+    if (checkOnStartup === null || checkOnStartup === undefined || checkOnStartup === 'true') {
+      setTimeout(() => {
+        console.log('[main] Auto-checking for updates on startup...');
+        autoUpdater.checkForUpdates().catch(err => {
+          console.error('[main] Auto-update check failed:', err);
+        });
+      }, 3000); // delay 3s to let the UI settle
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

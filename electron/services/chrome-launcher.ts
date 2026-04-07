@@ -4,9 +4,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { BrowserVersionManager } from './browser-version-manager';
+import { ProxyBridge } from './proxy-bridge';
 
 export class ChromeLauncher {
   private processes: Map<string, ChildProcess> = new Map();
+  private proxyBridges: Map<string, ProxyBridge> = new Map();
   private profilesBaseDir: string;
   private customChromePath: string | null = null;
   private browserVersionManager: BrowserVersionManager | null = null;
@@ -172,7 +174,7 @@ export class ChromeLauncher {
     fs.writeFileSync(prefsPath, JSON.stringify(prefs, null, 2), 'utf-8');
   }
 
-  launch(
+  async launch(
     profileId: string,
     userDataDir: string,
     options: {
@@ -187,7 +189,7 @@ export class ChromeLauncher {
       browserVersion?: string;
       fingerprintFlags?: Record<string, string>;
     } = {}
-  ): ChildProcess {
+  ): Promise<ChildProcess> {
     // Check if already running
     if (this.processes.has(profileId)) {
       const existing = this.processes.get(profileId)!;
@@ -253,6 +255,20 @@ export class ChromeLauncher {
           }
         }
       }
+
+      // Always remove Sync Data when using CloakBrowser — Chrome Sync is disabled
+      // anyway, and if the profile was touched by system Chrome (e.g. CDP cookie
+      // export via Puppeteer), the Sync Data LevelDB will be in a newer format that
+      // causes CloakBrowser to crash with SIGTRAP.
+      const syncDataDir = path.join(userDataDir, 'Default', 'Sync Data');
+      if (fs.existsSync(syncDataDir)) {
+        try {
+          fs.rmSync(syncDataDir, { recursive: true, force: true });
+          console.log(`[ChromeLauncher] Cleaned Sync Data for CloakBrowser compatibility`);
+        } catch (err) {
+          console.warn(`[ChromeLauncher] Failed to clean Sync Data: ${err}`);
+        }
+      }
     }
 
     const chromePath = this.resolveChromePath(options.browserVersion);
@@ -296,15 +312,73 @@ export class ChromeLauncher {
       args.push('--test-type');
     }
 
+    // Scrub stuck proxy settings from Chromium Preferences
+    try {
+      const prefsPath = path.join(userDataDir, 'Default', 'Preferences');
+      if (fs.existsSync(prefsPath)) {
+        const prefsStr = fs.readFileSync(prefsPath, 'utf8');
+        const prefsJson = JSON.parse(prefsStr);
+        let modified = false;
+
+        if (prefsJson && prefsJson.proxy) {
+          delete prefsJson.proxy;
+          modified = true;
+        }
+
+        // Scrub proxy overrides stored by extensions (e.g., from chrome.proxy API)
+        if (prefsJson && prefsJson.extensions && prefsJson.extensions.settings) {
+          for (const extId of Object.keys(prefsJson.extensions.settings)) {
+            const ext = prefsJson.extensions.settings[extId];
+            if (ext && ext.preferences && ext.preferences.proxy) {
+              delete ext.preferences.proxy;
+              modified = true;
+            }
+          }
+        }
+
+        if (modified) {
+          fs.writeFileSync(prefsPath, JSON.stringify(prefsJson));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to clean proxy Preferences:', e);
+    }
+
     // Add proxy if configured
+    let extensionPath: string | null = null;
     if (options.proxyHost && options.proxyPort) {
       const proxyType = options.proxyType || 'http';
-      if (proxyType === 'socks5') {
-        args.push(`--proxy-server=socks5://${options.proxyHost}:${options.proxyPort}`);
-      } else if (proxyType === 'socks4') {
-        args.push(`--proxy-server=socks4://${options.proxyHost}:${options.proxyPort}`);
+      
+      // Always wipe the old extension folder to guarantee no stale 'background.js' hijacks the proxy
+      const defaultExtensionPath = path.join(userDataDir, 'proxy_auth_extension');
+      if (fs.existsSync(defaultExtensionPath)) {
+        try {
+          fs.rmSync(defaultExtensionPath, { recursive: true, force: true });
+        } catch (e) {
+          console.error('Failed to scrub old proxy extension:', e);
+        }
+      }
+
+      // If proxy needs auth (and is not SOCKS, since SOCKS auth is natively impossible in Chrome via extension anyway),
+      // we use a rock-solid Local Proxy Bridge to completely eliminate the Chrome startup extension race condition.
+      if (options.proxyUser && options.proxyPass && (proxyType === 'http' || proxyType === 'https' || !proxyType)) {
+        const bridge = new ProxyBridge(options.proxyHost, options.proxyPort, options.proxyUser, options.proxyPass);
+        const localPort = await bridge.start();
+        this.proxyBridges.set(profileId, bridge);
+        
+        args.push(`--proxy-server=http://127.0.0.1:${localPort}`);
       } else {
-        args.push(`--proxy-server=${options.proxyHost}:${options.proxyPort}`);
+        // Fallback to normal direct proxy if no auth is needed, or if it's SOCKS
+        if (proxyType === 'socks5') {
+          args.push(`--proxy-server=socks5://${options.proxyHost}:${options.proxyPort}`);
+        } else if (proxyType === 'socks4') {
+          args.push(`--proxy-server=socks4://${options.proxyHost}:${options.proxyPort}`);
+        } else if (proxyType === 'https') {
+          args.push(`--proxy-server=https://${options.proxyHost}:${options.proxyPort}`);
+        } else {
+          // Default to http
+          args.push(`--proxy-server=http://${options.proxyHost}:${options.proxyPort}`);
+        }
       }
     }
 
@@ -342,6 +416,14 @@ export class ChromeLauncher {
       if (fp.brand) args.push(`--fingerprint-brand=${fp.brand}`);
       if (fp.storageQuota) args.push(`--fingerprint-storage-quota=${fp.storageQuota}`);
 
+      // WebRTC IP spoofing — prevent real IP leak when using a proxy.
+      // If user set an explicit value, use that; otherwise auto-detect when proxy is configured.
+      if (fp.webrtcIp) {
+        args.push(`--fingerprint-webrtc-ip=${fp.webrtcIp}`);
+      } else if (options.proxyHost && options.proxyPort) {
+        args.push('--fingerprint-webrtc-ip=auto');
+      }
+
       console.log(`[ChromeLauncher] CloakBrowser fingerprint seed: ${seed}`);
     }
 
@@ -368,6 +450,11 @@ export class ChromeLauncher {
     child.on('exit', (code) => {
       console.log(`[ChromeLauncher] Profile ${profileId} exited with code ${code}`);
       this.processes.delete(profileId);
+      const bridge = this.proxyBridges.get(profileId);
+      if (bridge) {
+        bridge.stop();
+        this.proxyBridges.delete(profileId);
+      }
     });
 
     return child;
@@ -423,6 +510,13 @@ export class ChromeLauncher {
     }
 
     this.processes.delete(profileId);
+    
+    const bridge = this.proxyBridges.get(profileId);
+    if (bridge) {
+      bridge.stop();
+      this.proxyBridges.delete(profileId);
+    }
+
     return true;
   }
 
