@@ -28,6 +28,12 @@
 - **Quản lý đa Profile** — Tạo, chỉnh sửa, xóa, nhân bản và tổ chức các profile Chrome. Mỗi profile chạy trong thư mục `user-data-dir` riêng biệt với phiên đăng nhập hoàn toàn độc lập.
 - **Nhân bản Profile** — Sao chép bất kỳ profile nào chỉ với một cú nhấp, giữ nguyên cookie, lịch sử và phiên đăng nhập.
 - **Bảo vệ Profile bằng mật khẩu** — Tùy chọn khóa profile bằng mật khẩu. Các thao tác nhạy cảm (khởi chạy, nhân bản, xuất cookie, sao lưu/khôi phục) yêu cầu xác thực.
+- **Khởi chạy dạng Lưới (Grid Launch)** — Khởi chạy đồng thời nhiều profile được sắp xếp tự động theo dạng lưới trên màn hình với kích thước tùy chỉnh.
+
+### Quản lý Tiện ích mở rộng
+- **Cửa hàng Tiện ích** — Tải xuống extension trực tiếp từ Chrome Web Store qua URL hoặc thiết lập từ file `.zip`/`.crx` nội bộ.
+- **Tự động cập nhật** — Kiểm tra và thực hiện cập nhật cho các extension đã cài đặt trên hệ thống.
+- **Gán cho Profile** — Gán extension cho từng profile độc lập hoặc gán hàng loạt cho nhiều profile cùng lúc.
 
 ### Proxy & Mạng
 - **Hỗ trợ Proxy** — Cấu hình proxy HTTP, SOCKS4, hoặc SOCKS5 cho từng profile với công cụ kiểm tra proxy tích hợp (IP, quốc gia, độ trễ).
@@ -44,9 +50,11 @@
 - **Phiên bản mặc định** — Thiết lập phiên bản trình duyệt mặc định cho tất cả profile mới.
 - **Đường dẫn trình duyệt tùy chỉnh** — Thêm bất kỳ trình duyệt Chromium nào bằng cách chọn file thực thi.
 
-### Dữ liệu & Sao lưu
+### Dữ liệu, Sao lưu & Đồng bộ Đám mây
+- **Đồng bộ Đám mây** — Tự động đồng bộ dữ liệu profile lên Google Drive hoặc AWS S3. Hỗ trợ tự động đồng bộ khi đóng profile và thiết lập giới hạn tùy chỉnh số lượng bản sao lưu.
+- **Mã hóa bảo mật** — Các bản sao lưu đám mây được bảo vệ bằng chuẩn mã hóa AES-256-GCM qua mật khẩu riêng, đảm bảo dữ liệu luôn riêng tư. Cấu hình ứng dụng và thông tin xác thực cũng được mã hóa cục bộ.
 - **Quản lý Cookie** — Import/export cookie dạng JSON cho bất kỳ profile nào.
-- **Sao lưu & Khôi phục** — Nén dữ liệu profile thành file `.zip` và khôi phục bất cứ lúc nào.
+- **Sao lưu & Khôi phục cục bộ** — Nén dữ liệu profile thành file `.zip` và khôi phục bất cứ lúc nào.
 - **Import / Export Profile** — Import/export cấu hình profile hàng loạt qua Excel (`.xlsx`) hoặc JSON.
 
 ### Tổ chức & Quy trình làm việc
@@ -58,7 +66,7 @@
 ### Nền tảng & Giao diện
 - **Đa nền tảng** — Hỗ trợ Windows, macOS, và Linux với các tối ưu riêng cho từng nền tảng.
 - **Tự động cập nhật** — Tự động kiểm tra và cập nhật ứng dụng qua GitHub Releases.
-- **Đa ngôn ngữ** — Giao diện tiếng Anh và tiếng Việt với `react-i18next`.
+- **Đa ngôn ngữ** — Hỗ trợ giao diện tiếng Anh, tiếng Việt, tiếng Pháp, và tiếng Trung qua `react-i18next`.
 - **Giao diện hiện đại** — Thanh tiêu đề tùy chỉnh với traffic light macOS native, giao diện tối, thông báo toast, menu ngữ cảnh, phím tắt.
 
 ## 🖥️ Nền tảng hỗ trợ

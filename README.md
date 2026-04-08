@@ -28,6 +28,12 @@
 - **Multi-Profile Management** — Create, edit, delete, clone, and organize Chrome profiles. Each profile runs in its own isolated `user-data-dir` with fully separate sessions.
 - **Profile Cloning** — Duplicate any profile with a single click, preserving cookies, history, and active sessions.
 - **Profile Password Protection** — Optionally lock individual profiles with a password. Sensitive operations (launch, clone, export cookies, backup/restore) require authentication.
+- **Grid Launch** — Launch multiple selected profiles arranged in an organized grid layout across your screen with customizable dimensions.
+
+### Extension Management
+- **Extension Store** — Download extensions directly from the Chrome Web Store via URL or install from local `.zip`/`.crx` files.
+- **Auto Updates** — Check and perform updates for installed extensions.
+- **Assignments** — Assign extensions per profile or batch-assign to multiple profiles at once.
 
 ### Proxy & Network
 - **Proxy Support** — Configure HTTP, SOCKS4, or SOCKS5 proxies per profile with built-in proxy checker (IP, country, latency).
@@ -44,9 +50,11 @@
 - **Default Version** — Set a default browser version for all new profiles.
 - **Custom Browser Paths** — Add any Chromium-based browser by selecting its executable path.
 
-### Data & Backup
+### Data, Backup & Cloud Sync
+- **Cloud Synchronization** — Automatically sync profiles to Google Drive or AWS S3-compatible storage. Features auto-sync on close and configurable backup retention limits.
+- **End-to-End Encryption** — Cloud backups are protected with AES-256-GCM encryption using a custom passphrase, ensuring your data remains private. Settings and credentials are also encrypted at rest locally.
 - **Cookie Management** — Import/export cookies in JSON format for any profile.
-- **Backup & Restore** — Compress a profile's full data to a `.zip` archive and restore it anytime.
+- **Local Backup & Restore** — Compress a profile's full data to a `.zip` archive and restore it anytime.
 - **Import / Export Profiles** — Bulk import/export profile configurations via Excel (`.xlsx`) or JSON.
 
 ### Organization & Workflow
@@ -58,7 +66,7 @@
 ### Platform & UI
 - **Cross-Platform** — Native support for Windows, macOS, and Linux with platform-specific optimizations.
 - **Auto-Updater** — Automatic update checks and in-app updates via GitHub Releases.
-- **Multilingual** — English and Vietnamese UI with `react-i18next`.
+- **Multilingual** — Supported in English, Vietnamese, French, and Chinese via `react-i18next`.
 - **Modern UI** — Custom frameless title bar with native macOS traffic lights, dark theme, toast notifications, context menus, keyboard shortcuts.
 
 ## 🖥️ Supported Platforms
