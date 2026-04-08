@@ -92,11 +92,6 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   };
 
   const handleDownloadUpdate = () => {
-    if (isMac) {
-      // macOS: open GitHub releases page (code signing required for in-app update)
-      api.openExternal(`https://github.com/collyn/ezprofile/releases/latest`);
-      return;
-    }
     setUpdateStatus('downloading');
     setDownloadPercent(0);
     api.downloadUpdate();
@@ -392,7 +387,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   </div>
                   <button className="btn btn-primary btn-sm" onClick={handleDownloadUpdate}>
                     <DownloadIcon size={12} strokeWidth={2.5} style={{ marginRight: 4 }} />
-                    {isMac ? t('settings.appInfo.openDownloadPage') : t('settings.appInfo.downloadUpdate')}
+                    {t('settings.appInfo.downloadUpdate')}
                   </button>
                 </div>
               )}
