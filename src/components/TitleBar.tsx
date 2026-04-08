@@ -10,6 +10,8 @@ const LANGUAGES = [
   { code: 'vi', label: 'Tiếng Việt', short: 'VI' },
   { code: 'fr', label: 'Français', short: 'FR' },
   { code: 'zh', label: '中文', short: 'ZH' },
+  { code: 'ko', label: '한국어', short: 'KO' },
+  { code: 'ja', label: '日本語', short: 'JA' },
 ];
 
 interface TitleBarProps {
