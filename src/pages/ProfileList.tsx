@@ -9,13 +9,15 @@ import BatchAssignGroupModal from '../components/BatchAssignGroupModal';
 import BatchAssignProxyModal from '../components/BatchAssignProxyModal';
 import BrowserVersionModal from '../components/BrowserVersionModal';
 import ProxyManagerModal from '../components/ProxyManagerModal';
+import ExtensionManagerModal from '../components/ExtensionManagerModal';
+import AssignExtensionModal from '../components/AssignExtensionModal';
 import SyncProfileModal from '../components/SyncProfileModal';
 import { PassphrasePromptModal } from '../components/PassphrasePromptModal';
 import GridLaunchModal from '../components/GridLaunchModal';
 import { getAPI } from '../api';
 import { useDialog } from '../contexts/DialogContext';
 import { useToast } from '../contexts/ToastContext';
-import { PlusIcon, GridIcon, ChromeIcon, ShieldIcon, DownloadIcon, FileUpIcon, SpinnerIcon, SearchIcon, UsersIcon, UploadIcon, CloudDownloadIcon, TrashIcon, EmptyStateIcon, MoreVerticalIcon, LockIcon, LayoutGridIcon, StopCircleIcon, ToggleRightIcon, ToggleLeftIcon } from '../components/Icons';
+import { PlusIcon, GridIcon, ChromeIcon, ShieldIcon, DownloadIcon, FileUpIcon, SpinnerIcon, SearchIcon, UsersIcon, UploadIcon, CloudDownloadIcon, TrashIcon, EmptyStateIcon, MoreVerticalIcon, LockIcon, LayoutGridIcon, StopCircleIcon, ToggleRightIcon, ToggleLeftIcon, PuzzleIcon } from '../components/Icons';
 import CountryFlag, { countryCodeToFlag } from '../components/CountryFlag';
 
 interface ProfileListProps {
@@ -87,6 +89,8 @@ export default function ProfileList({
   const [showBrowserVersionModal, setShowBrowserVersionModal] = useState(false);
   const [showGridLaunchModal, setShowGridLaunchModal] = useState(false);
   const [showProxyManager, setShowProxyManager] = useState(false);
+  const [showExtensionManager, setShowExtensionManager] = useState(false);
+  const [showAssignExtension, setShowAssignExtension] = useState(false);
   const [editingProfile, setEditingProfile] = useState<ProfileData | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -393,6 +397,10 @@ export default function ProfileList({
               <ShieldIcon />
               {t('profiles.manageProxies')}
             </button>
+            <button className="btn" onClick={() => setShowExtensionManager(true)}>
+              <PuzzleIcon />
+              {t('profiles.manageExtensions', 'Extensions')}
+            </button>
             <div className="toolbar-separator" />
             <button className="btn" onClick={() => onImportProfiles()}>
               <DownloadIcon />
@@ -460,6 +468,10 @@ export default function ProfileList({
             }}>
               <ToggleLeftIcon />
               {t('profiles.disableProxy', 'Disable Proxy')}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowAssignExtension(true)}>
+              <PuzzleIcon />
+              {t('profiles.assignExtension', 'Extensions')}
             </button>
             {Array.from(selectedIds).some(id => profiles.find(p => p.id === id)?.status === 'running') && (
               <button className="btn btn-outline btn-sm" onClick={handleBatchStop}>
@@ -723,6 +735,18 @@ export default function ProfileList({
 
       {showProxyManager && (
         <ProxyManagerModal onClose={() => setShowProxyManager(false)} />
+      )}
+
+      {showExtensionManager && (
+        <ExtensionManagerModal onClose={() => setShowExtensionManager(false)} />
+      )}
+
+      {showAssignExtension && (
+        <AssignExtensionModal
+          profileIds={Array.from(selectedIds)}
+          onClose={() => setShowAssignExtension(false)}
+          onSaved={() => {}}
+        />
       )}
 
       {/* Cloud Sync Modal */}

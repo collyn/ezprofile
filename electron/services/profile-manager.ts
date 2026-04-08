@@ -394,7 +394,119 @@ export class ProfileManager {
     return this.db.prepare('SELECT * FROM sync_log ORDER BY created_at DESC LIMIT ?').all(limit);
   }
 
+  // Extension management
+  getExtensions(): any[] {
+    return this.db.prepare('SELECT * FROM extensions ORDER BY created_at DESC').all();
+  }
+
+  getExtensionById(id: string): any | undefined {
+    return this.db.prepare('SELECT * FROM extensions WHERE id = ?').get(id);
+  }
+
+  createExtension(input: {
+    name: string; ext_id?: string; version?: string; description?: string;
+    icon_path?: string; source_url?: string; store_version?: string; ext_dir: string;
+  }): any {
+    const id = uuidv4();
+    this.db.prepare(
+      `INSERT INTO extensions (id, name, ext_id, version, description, icon_path, source_url, store_version, ext_dir)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id, input.name, input.ext_id || null, input.version || null,
+      input.description || null, input.icon_path || null,
+      input.source_url || null, input.store_version || null, input.ext_dir
+    );
+    return this.db.prepare('SELECT * FROM extensions WHERE id = ?').get(id);
+  }
+
+  updateExtension(id: string, input: {
+    name?: string; version?: string; description?: string;
+    icon_path?: string; store_version?: string; ext_dir?: string;
+  }): any {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    for (const [key, value] of Object.entries(input)) {
+      if (value !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+
+    if (fields.length > 0) {
+      fields.push("updated_at = datetime('now')");
+      values.push(id);
+      this.db.prepare(`UPDATE extensions SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+    }
+    return this.db.prepare('SELECT * FROM extensions WHERE id = ?').get(id);
+  }
+
+  deleteExtension(id: string): void {
+    this.db.prepare('DELETE FROM profile_extensions WHERE extension_id = ?').run(id);
+    this.db.prepare('DELETE FROM extensions WHERE id = ?').run(id);
+  }
+
+  // Profile-Extension associations
+  getProfileExtensions(profileId: string): any[] {
+    return this.db.prepare(
+      `SELECT e.* FROM extensions e
+       INNER JOIN profile_extensions pe ON pe.extension_id = e.id
+       WHERE pe.profile_id = ?
+       ORDER BY e.name`
+    ).all(profileId);
+  }
+
+  setProfileExtensions(profileId: string, extensionIds: string[]): void {
+    const tx = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM profile_extensions WHERE profile_id = ?').run(profileId);
+      const insert = this.db.prepare('INSERT INTO profile_extensions (profile_id, extension_id) VALUES (?, ?)');
+      for (const extId of extensionIds) {
+        insert.run(profileId, extId);
+      }
+    });
+    tx();
+  }
+
+  addExtensionToProfiles(extensionId: string, profileIds: string[]): void {
+    const insert = this.db.prepare(
+      'INSERT OR IGNORE INTO profile_extensions (profile_id, extension_id) VALUES (?, ?)'
+    );
+    const tx = this.db.transaction(() => {
+      for (const profileId of profileIds) {
+        insert.run(profileId, extensionId);
+      }
+    });
+    tx();
+  }
+
+  removeExtensionFromProfiles(extensionId: string, profileIds: string[]): void {
+    const del = this.db.prepare(
+      'DELETE FROM profile_extensions WHERE profile_id = ? AND extension_id = ?'
+    );
+    const tx = this.db.transaction(() => {
+      for (const profileId of profileIds) {
+        del.run(profileId, extensionId);
+      }
+    });
+    tx();
+  }
+
+  getExtensionProfileCount(extensionId: string): number {
+    const row = this.db.prepare(
+      'SELECT COUNT(*) as count FROM profile_extensions WHERE extension_id = ?'
+    ).get(extensionId) as { count: number };
+    return row.count;
+  }
+
+  getExtensionProfiles(extensionId: string): string[] {
+    const rows = this.db.prepare(
+      'SELECT profile_id FROM profile_extensions WHERE extension_id = ?'
+    ).all(extensionId) as { profile_id: string }[];
+    return rows.map(r => r.profile_id);
+  }
+
   close(): void {
     this.db.close();
   }
 }
+

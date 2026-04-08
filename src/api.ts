@@ -1,4 +1,4 @@
-import { ProfileData, CreateProfileInput, ProxyCheckResult, ProxyData } from './types';
+import { ProfileData, CreateProfileInput, ProxyCheckResult, ProxyData, ExtensionData } from './types';
 
 // Mock electronAPI for browser-only development (when not running in Electron)
 const mockProfiles: ProfileData[] = [];
@@ -217,6 +217,19 @@ export const mockElectronAPI: typeof window.electronAPI = {
   syncRestoreAll: async () => ({ success: true, count: 0, failed: 0 }),
   onSyncProgress: () => {},
   onSyncAllComplete: () => {},
+
+  // Extension mocks
+  getExtensions: async () => [],
+  uploadExtension: async () => ({ success: false, error: 'Mock mode' }),
+  downloadExtensionFromStore: async () => ({ success: false, error: 'Mock mode' }),
+  updateExtension: async (id: string) => ({ id, name: '', ext_id: null, version: null, description: null, icon_path: null, source_url: null, store_version: null, ext_dir: '', profile_count: 0, created_at: '', updated_at: '' } as ExtensionData),
+  deleteExtension: async () => {},
+  checkExtensionUpdate: async () => ({ success: false, error: 'Mock mode' }),
+  performExtensionUpdate: async () => ({ success: false, error: 'Mock mode' }),
+  getProfileExtensions: async () => [],
+  setProfileExtensions: async () => {},
+  addExtensionToProfiles: async () => {},
+  getExtensionIcon: async () => null,
 };
 
 export function getAPI(): typeof window.electronAPI {

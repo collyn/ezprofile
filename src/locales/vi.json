@@ -50,6 +50,8 @@
       "manageGroups": "Quản lý nhóm",
       "manageChrome": "Quản lý Chrome",
       "manageProxies": "Quản lý Proxy",
+      "manageExtensions": "Tiện ích",
+      "assignExtension": "Tiện ích",
       "importExcelJson": "Nhập Excel/JSON",
       "exportAll": "Xuất tất cả",
       "searchPlaceholder": "Tìm kiếm theo tên profile...",
@@ -505,6 +507,31 @@
       "restoreDesc3": "dữ liệu hiện tại của profile.",
       "filterPlaceholder": "Lọc theo tên profile...",
       "deleteBackupConfirm": "Xóa bản sao lưu này?\n{{date}} — {{size}}"
+    },
+    "extensionManager": {
+      "title": "Quản lý Tiện ích",
+      "chromeStoreUrl": "Link Chrome Web Store",
+      "storeUrlPlaceholder": "Dán link extension hoặc ID từ Chrome Web Store...",
+      "download": "Tải về",
+      "downloading": "Đang tải...",
+      "downloadError": "Tải thất bại",
+      "uploadFile": "Tải lên ZIP/CRX",
+      "uploadError": "Tải lên thất bại",
+      "checkAllUpdates": "Kiểm tra cập nhật",
+      "listTitle": "Tiện ích ({{count}})",
+      "emptyList": "Chưa có tiện ích nào",
+      "profileCount": "{{count}} profile",
+      "updateAvailable": "Bản mới: v{{version}}",
+      "updateBtn": "Cập nhật",
+      "checkUpdate": "Kiểm tra cập nhật",
+      "edit": "Sửa",
+      "deleteTooltip": "Xóa tiện ích",
+      "deleteConfirm": "Xóa tiện ích \"{{name}}\"? Nó sẽ bị gỡ khỏi tất cả các profile.",
+      "save": "Lưu",
+      "cancel": "Hủy",
+      "close": "Đóng",
+      "assignTitle": "Gán tiện ích cho {{count}} profile",
+      "noExtensions": "Chưa có tiện ích. Thêm tiện ích từ trình quản lý tiện ích trước."
     }
   }
 }

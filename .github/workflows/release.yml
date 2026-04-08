@@ -52,6 +52,8 @@ jobs:
         run: npx electron-builder --${{ matrix.platform }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

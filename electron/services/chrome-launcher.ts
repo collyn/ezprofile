@@ -190,6 +190,8 @@ export class ChromeLauncher {
       browserVersion?: string;
       fingerprintFlags?: Record<string, string>;
       bounds?: { x: number; y: number; width: number; height: number };
+      extensionPaths?: string[];
+      extensionStoreUrls?: string[];
     } = {}
   ): Promise<ChildProcess> {
     // Check if already running
@@ -433,6 +435,27 @@ export class ChromeLauncher {
     if (options.bounds) {
       args.push(`--window-position=${Math.floor(options.bounds.x)},${Math.floor(options.bounds.y)}`);
       args.push(`--window-size=${Math.floor(options.bounds.width)},${Math.floor(options.bounds.height)}`);
+    }
+
+    // Load unpacked extensions if assigned to this profile
+    if (options.extensionPaths && options.extensionPaths.length > 0) {
+      // Filter to only existing directories
+      const validPaths = options.extensionPaths.filter(p => fs.existsSync(p));
+      if (validPaths.length > 0) {
+        args.push(`--load-extension=${validPaths.join(',')}`);
+        args.push('--enable-extensions');
+        console.log(`[ChromeLauncher] Loading ${validPaths.length} extension(s)`);
+      }
+    }
+
+    // Load store extension URLs as new tabs for normal Chrome
+    if (options.extensionStoreUrls && options.extensionStoreUrls.length > 0) {
+      options.extensionStoreUrls.forEach(url => {
+        if (!args.includes(url)) {
+          args.push(url);
+        }
+      });
+      console.log(`[ChromeLauncher] Opening ${options.extensionStoreUrls.length} store extension URL(s)`);
     }
 
     // Enable DevTools Protocol for programmatic focus (random port)

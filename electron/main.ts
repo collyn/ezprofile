@@ -9,6 +9,7 @@ import { EncryptionService } from './services/encryption-service';
 import { GDriveService } from './services/gdrive-service';
 import { S3Service } from './services/s3-service';
 import { SyncScheduler } from './services/sync-scheduler';
+import { ExtensionManager } from './services/extension-manager';
 import { autoUpdater } from 'electron-updater';
 import { BrowserVersionManager } from './services/browser-version-manager';
 import { registerIpcHandlers } from './ipc-handlers';
@@ -93,8 +94,10 @@ function createWindow() {
   chromeLauncher.setBrowserVersionManager(browserVersionManager);
   cookieManager.setBrowserVersionManager(browserVersionManager);
 
+  const extensionManager = new ExtensionManager(app.getPath('userData'));
+
   // Register IPC handlers
-  registerIpcHandlers(ipcMain, profileManager, chromeLauncher, proxyChecker, cookieManager, backupManager, browserVersionManager, mainWindow, encryptionSvc, gdriveService, s3Service, syncScheduler);
+  registerIpcHandlers(ipcMain, profileManager, chromeLauncher, proxyChecker, cookieManager, backupManager, browserVersionManager, mainWindow, encryptionSvc, gdriveService, s3Service, syncScheduler, extensionManager);
 
   // Load UI
   if (process.env.NODE_ENV === 'development') {

@@ -71,6 +71,28 @@ export function initDatabase(dbPath: string): Database.Database {
       size_bytes INTEGER,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS extensions (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      ext_id TEXT,
+      version TEXT,
+      description TEXT,
+      icon_path TEXT,
+      source_url TEXT,
+      store_version TEXT,
+      ext_dir TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS profile_extensions (
+      profile_id TEXT NOT NULL,
+      extension_id TEXT NOT NULL,
+      PRIMARY KEY (profile_id, extension_id),
+      FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+      FOREIGN KEY (extension_id) REFERENCES extensions(id) ON DELETE CASCADE
+    );
   `);
 
   // Migrations

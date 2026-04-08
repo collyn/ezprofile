@@ -207,6 +207,29 @@ const electronAPI = {
     ipcRenderer.removeAllListeners('sync:allComplete');
     ipcRenderer.on('sync:allComplete', (_event, result) => callback(result));
   },
+
+  // ── Extensions ──────────────────────────────────────────────
+  getExtensions: (): Promise<any[]> => ipcRenderer.invoke('extension:getAll'),
+  uploadExtension: (): Promise<{ success: boolean; extension?: any; canceled?: boolean; error?: string }> =>
+    ipcRenderer.invoke('extension:upload'),
+  downloadExtensionFromStore: (storeUrl: string): Promise<{ success: boolean; extension?: any; error?: string }> =>
+    ipcRenderer.invoke('extension:downloadFromStore', storeUrl),
+  updateExtension: (id: string, data: { name?: string }): Promise<any> =>
+    ipcRenderer.invoke('extension:update', id, data),
+  deleteExtension: (id: string): Promise<void> =>
+    ipcRenderer.invoke('extension:delete', id),
+  checkExtensionUpdate: (id: string): Promise<{ success: boolean; current_version?: string; store_version?: string; has_update?: boolean; error?: string }> =>
+    ipcRenderer.invoke('extension:checkUpdate', id),
+  performExtensionUpdate: (id: string): Promise<{ success: boolean; extension?: any; error?: string }> =>
+    ipcRenderer.invoke('extension:performUpdate', id),
+  getProfileExtensions: (profileId: string): Promise<any[]> =>
+    ipcRenderer.invoke('extension:getProfileExtensions', profileId),
+  setProfileExtensions: (profileIds: string[], extensionIds: string[]): Promise<void> =>
+    ipcRenderer.invoke('extension:setProfileExtensions', profileIds, extensionIds),
+  addExtensionToProfiles: (extensionId: string, profileIds: string[]): Promise<void> =>
+    ipcRenderer.invoke('extension:addToProfiles', extensionId, profileIds),
+  getExtensionIcon: (iconPath: string): Promise<string | null> =>
+    ipcRenderer.invoke('extension:getIcon', iconPath),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

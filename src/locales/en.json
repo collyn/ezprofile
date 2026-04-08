@@ -50,6 +50,8 @@
       "manageGroups": "Manage Groups",
       "manageChrome": "Manage Chrome",
       "manageProxies": "Manage Proxies",
+      "manageExtensions": "Extensions",
+      "assignExtension": "Extensions",
       "importExcelJson": "Import Excel/JSON",
       "exportAll": "Export All",
       "searchPlaceholder": "Search by profile name...",
@@ -505,6 +507,31 @@
       "restoreDesc3": "the current profile data.",
       "filterPlaceholder": "Filter by profile name...",
       "deleteBackupConfirm": "Delete this backup?\n{{date}} — {{size}}"
+    },
+    "extensionManager": {
+      "title": "Manage Extensions",
+      "chromeStoreUrl": "Chrome Web Store URL",
+      "storeUrlPlaceholder": "Paste extension link or ID from Chrome Web Store...",
+      "download": "Download",
+      "downloading": "Downloading...",
+      "downloadError": "Download failed",
+      "uploadFile": "Upload ZIP/CRX",
+      "uploadError": "Upload failed",
+      "checkAllUpdates": "Check All Updates",
+      "listTitle": "Extensions ({{count}})",
+      "emptyList": "No extensions added yet",
+      "profileCount": "{{count}} profile(s)",
+      "updateAvailable": "Update available: v{{version}}",
+      "updateBtn": "Update",
+      "checkUpdate": "Check for updates",
+      "edit": "Edit",
+      "deleteTooltip": "Delete extension",
+      "deleteConfirm": "Delete extension \"{{name}}\"? It will be removed from all profiles.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "close": "Close",
+      "assignTitle": "Assign Extensions to {{count}} profile(s)",
+      "noExtensions": "No extensions available. Add extensions from the Extension Manager first."
     }
   }
 }

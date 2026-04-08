@@ -32,6 +32,19 @@ declare global {
       updateProxy: (id: string, data: { name?: string; type?: string; host?: string; port?: number; username?: string; password?: string; country_code?: string; country_name?: string }) => Promise<ProxyData>;
       deleteProxy: (id: string) => Promise<void>;
 
+      // Extension operations
+      getExtensions: () => Promise<ExtensionData[]>;
+      uploadExtension: () => Promise<{ success: boolean; extension?: ExtensionData; canceled?: boolean; error?: string }>;
+      downloadExtensionFromStore: (storeUrl: string) => Promise<{ success: boolean; extension?: ExtensionData; error?: string }>;
+      updateExtension: (id: string, data: { name?: string }) => Promise<ExtensionData>;
+      deleteExtension: (id: string) => Promise<void>;
+      checkExtensionUpdate: (id: string) => Promise<{ success: boolean; current_version?: string; store_version?: string; has_update?: boolean; error?: string }>;
+      performExtensionUpdate: (id: string) => Promise<{ success: boolean; extension?: ExtensionData; error?: string }>;
+      getProfileExtensions: (profileId: string) => Promise<ExtensionData[]>;
+      setProfileExtensions: (profileIds: string[], extensionIds: string[]) => Promise<void>;
+      addExtensionToProfiles: (extensionId: string, profileIds: string[]) => Promise<void>;
+      getExtensionIcon: (iconPath: string) => Promise<string | null>;
+
       // Cookie and Backup operations
       importCookies: (profileId: string) => Promise<{ success: boolean; error?: string; canceled?: boolean }>;
       exportCookies: (profileId: string) => Promise<{ success: boolean; error?: string; canceled?: boolean }>;
@@ -238,6 +251,21 @@ export interface ProxyData {
   password: string | null;
   country_code: string | null;
   country_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExtensionData {
+  id: string;
+  name: string;
+  ext_id: string | null;
+  version: string | null;
+  description: string | null;
+  icon_path: string | null;
+  source_url: string | null;
+  store_version: string | null;
+  ext_dir: string;
+  profile_count: number;
   created_at: string;
   updated_at: string;
 }

@@ -50,6 +50,8 @@ import {
   StopCircle as StopCircleIcon,
   ToggleLeft as ToggleLeftIcon,
   ToggleRight as ToggleRightIcon,
+  Puzzle as PuzzleIcon,
+  RefreshCw as RefreshCwIcon,
 } from 'lucide-react';
 
 export interface IconProps {
@@ -111,6 +113,8 @@ export {
   StopCircleIcon,
   ToggleLeftIcon,
   ToggleRightIcon,
+  PuzzleIcon,
+  RefreshCwIcon,
 };
 
 // --- Custom Icons ---

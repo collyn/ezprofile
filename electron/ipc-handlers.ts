@@ -9,9 +9,11 @@ import { EncryptionService } from './services/encryption-service';
 import { GDriveService } from './services/gdrive-service';
 import { S3Service } from './services/s3-service';
 import { SyncScheduler } from './services/sync-scheduler';
+import { ExtensionManager } from './services/extension-manager';
 import { exportData, importData } from './utils/import-export';
 import { autoUpdater } from 'electron-updater';
 import * as fs from 'fs';
+import * as path from 'path';
 
 export function registerIpcHandlers(
   ipcMain: IpcMain,
@@ -25,7 +27,8 @@ export function registerIpcHandlers(
   encryptionSvc?: EncryptionService,
   gdriveService?: GDriveService,
   s3Service?: S3Service,
-  syncScheduler?: SyncScheduler
+  syncScheduler?: SyncScheduler,
+  extensionManager?: ExtensionManager
 ) {
   // Cleanup stale 'running' statuses from crashed sessions (using lock files).
   // Runs on startup and every 60s — NOT on every getAll to avoid race conditions.
@@ -211,6 +214,33 @@ export function registerIpcHandlers(
       fpFlags = JSON.parse(profile.fingerprint_flags);
     }
 
+    // Get extension paths for this profile
+    const profileExtensions = profileManager.getProfileExtensions(id);
+    const extensionPaths: string[] = [];
+    const extensionStoreUrls: string[] = [];
+    
+    for (const ext of profileExtensions) {
+      if (isCB) {
+        // CloakBrowser: use --load-extension for ALL extensions
+        if (fs.existsSync(ext.ext_dir)) {
+          extensionPaths.push(ext.ext_dir);
+        }
+      } else {
+        // System Chrome:
+        if (ext.source_url && ext.ext_id) {
+          // Check if the extension is already installed in the Chrome profile
+          const installedPath = path.join(profile.user_data_dir, 'Default', 'Extensions', ext.ext_id);
+          if (!fs.existsSync(installedPath)) {
+            extensionStoreUrls.push(ext.source_url);
+          }
+        } else {
+          if (fs.existsSync(ext.ext_dir)) {
+            extensionPaths.push(ext.ext_dir);
+          }
+        }
+      }
+    }
+
     try {
       const child = await chromeLauncher.launch(id, profile.user_data_dir, {
         proxyType: profile.proxy_enabled ? (profile.proxy_type || undefined) : undefined,
@@ -224,6 +254,8 @@ export function registerIpcHandlers(
         browserVersion: profile.browser_version || 'system',
         fingerprintFlags: fpFlags,
         bounds: bounds,
+        extensionPaths: extensionPaths.length > 0 ? extensionPaths : undefined,
+        extensionStoreUrls: extensionStoreUrls.length > 0 ? extensionStoreUrls : undefined,
       });
 
       profileManager.updateStatus(id, 'running');
@@ -1261,5 +1293,148 @@ export function registerIpcHandlers(
       return { success: false, error: err.message };
     }
   });
-}
 
+  // ──────────────────────────────────────────────────────────
+  // Extension management handlers
+  // ──────────────────────────────────────────────────────────
+
+  ipcMain.handle('extension:getAll', () => {
+    const extensions = profileManager.getExtensions();
+    return extensions.map((ext: any) => ({
+      ...ext,
+      profile_count: profileManager.getExtensionProfileCount(ext.id),
+    }));
+  });
+
+  ipcMain.handle('extension:upload', async () => {
+    if (!mainWindow || !extensionManager) return { success: false, error: 'Not available' };
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Extension File',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Chrome Extension', extensions: ['crx', 'zip'] },
+      ],
+    });
+
+    if (canceled || filePaths.length === 0) return { success: false, canceled: true };
+
+    try {
+      const { extDir, manifest } = await extensionManager.processUploadedFile(filePaths[0]);
+      const iconPath = extensionManager.getBestIconPath(manifest, extDir);
+      const ext = profileManager.createExtension({
+        name: manifest.name || 'Unknown Extension',
+        version: manifest.version,
+        description: manifest.description,
+        icon_path: iconPath || undefined,
+        ext_dir: extDir,
+      });
+      return { success: true, extension: { ...ext, profile_count: 0 } };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('extension:downloadFromStore', async (_event, storeUrl: string) => {
+    if (!extensionManager) return { success: false, error: 'Extension manager not available' };
+
+    try {
+      const { extDir, manifest, extensionId } = await extensionManager.downloadFromStore(storeUrl);
+      const iconPath = extensionManager.getBestIconPath(manifest, extDir);
+      const ext = profileManager.createExtension({
+        name: manifest.name || 'Unknown Extension',
+        ext_id: extensionId,
+        version: manifest.version,
+        description: manifest.description,
+        icon_path: iconPath || undefined,
+        source_url: storeUrl,
+        store_version: manifest.version,
+        ext_dir: extDir,
+      });
+      return { success: true, extension: { ...ext, profile_count: 0 } };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('extension:update', (_event, id: string, data: { name?: string }) => {
+    return profileManager.updateExtension(id, data);
+  });
+
+  ipcMain.handle('extension:delete', (_event, id: string) => {
+    const ext = profileManager.getExtensionById(id);
+    if (ext && extensionManager) {
+      extensionManager.deleteExtensionFiles(ext.ext_dir);
+    }
+    profileManager.deleteExtension(id);
+  });
+
+  ipcMain.handle('extension:checkUpdate', async (_event, id: string) => {
+    if (!extensionManager) return { success: false, error: 'Not available' };
+    const ext = profileManager.getExtensionById(id);
+    if (!ext || !ext.ext_id) return { success: false, error: 'Extension has no store ID' };
+
+    try {
+      const storeVersion = await extensionManager.checkStoreVersion(ext.ext_id);
+      if (!storeVersion) return { success: false, error: 'Could not check store version' };
+
+      profileManager.updateExtension(id, { store_version: storeVersion });
+
+      return {
+        success: true,
+        current_version: ext.version,
+        store_version: storeVersion,
+        has_update: storeVersion !== ext.version,
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('extension:performUpdate', async (_event, id: string) => {
+    if (!extensionManager) return { success: false, error: 'Not available' };
+    const ext = profileManager.getExtensionById(id);
+    if (!ext || !ext.ext_id) return { success: false, error: 'Extension has no store ID' };
+
+    try {
+      const manifest = await extensionManager.updateFromStore(ext.ext_id, ext.ext_dir);
+      const iconPath = extensionManager.getBestIconPath(manifest, ext.ext_dir);
+      const updated = profileManager.updateExtension(id, {
+        version: manifest.version,
+        name: manifest.name || ext.name,
+        description: manifest.description,
+        icon_path: iconPath || undefined,
+        store_version: manifest.version,
+      });
+      return { success: true, extension: { ...updated, profile_count: profileManager.getExtensionProfileCount(id) } };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('extension:getProfileExtensions', (_event, profileId: string) => {
+    return profileManager.getProfileExtensions(profileId);
+  });
+
+  ipcMain.handle('extension:setProfileExtensions', (_event, profileIds: string[], extensionIds: string[]) => {
+    for (const profileId of profileIds) {
+      profileManager.setProfileExtensions(profileId, extensionIds);
+    }
+  });
+
+  ipcMain.handle('extension:addToProfiles', (_event, extensionId: string, profileIds: string[]) => {
+    profileManager.addExtensionToProfiles(extensionId, profileIds);
+  });
+
+  ipcMain.handle('extension:getIcon', (_event, iconPath: string) => {
+    if (!iconPath || !fs.existsSync(iconPath)) return null;
+    try {
+      const data = fs.readFileSync(iconPath);
+      const ext = path.extname(iconPath).toLowerCase();
+      const mime = ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'image/png';
+      return `data:${mime};base64,${data.toString('base64')}`;
+    } catch {
+      return null;
+    }
+  });
+}
