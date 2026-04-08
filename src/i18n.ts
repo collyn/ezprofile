@@ -2,6 +2,8 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import enTranslations from './locales/en.json';
 import viTranslations from './locales/vi.json';
+import frTranslations from './locales/fr.json';
+import zhTranslations from './locales/zh.json';
 
 const savedLanguage = localStorage.getItem('language') || 'vi';
 
@@ -11,6 +13,8 @@ i18n
     resources: {
       en: enTranslations,
       vi: viTranslations,
+      fr: frTranslations,
+      zh: zhTranslations,
     },
     lng: savedLanguage,
     fallbackLng: 'en',

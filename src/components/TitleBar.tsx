@@ -8,6 +8,8 @@ const api = getAPI();
 const LANGUAGES = [
   { code: 'en', label: 'English', short: 'EN' },
   { code: 'vi', label: 'Tiếng Việt', short: 'VI' },
+  { code: 'fr', label: 'Français', short: 'FR' },
+  { code: 'zh', label: '中文', short: 'ZH' },
 ];
 
 interface TitleBarProps {
