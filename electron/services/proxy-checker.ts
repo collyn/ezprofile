@@ -22,8 +22,8 @@ export class ProxyChecker {
     type: string,
     host: string,
     port: number,
-    _user?: string,
-    _pass?: string
+    user?: string,
+    pass?: string
   ): Promise<ProxyCheckResult> {
     const startTime = Date.now();
 
@@ -34,10 +34,18 @@ export class ProxyChecker {
 
       // Try to get external IP through the proxy
       let ip = host;
+      const requiresAuthValidation = !!(user || pass) && (type === 'http' || type === 'https');
       try {
-        ip = await this.getExternalIP(type, host, port, 10000);
-      } catch {
-        // If IP check fails, still consider proxy alive
+        ip = await this.getExternalIP(type, host, port, 10000, user, pass);
+      } catch (err) {
+        // For authenticated HTTP proxies, a failed proxied request usually means
+        // invalid credentials or a proxy that Chrome also cannot use.
+        if (requiresAuthValidation) {
+          throw err;
+        }
+
+        // For unauthenticated proxies, keep the old lenient behavior and only
+        // use the external IP lookup as a best-effort enhancement.
       }
 
       // Try to look up country for the IP
@@ -120,31 +128,55 @@ export class ProxyChecker {
     });
   }
 
-  private getExternalIP(type: string, host: string, port: number, timeout: number): Promise<string> {
+  private getExternalIP(
+    type: string,
+    host: string,
+    port: number,
+    timeout: number,
+    user?: string,
+    pass?: string
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'api.ipify.org',
-        port: 80,
-        path: '/',
-        method: 'GET',
-        timeout,
-        agent: false as any,
-      };
-
       // For HTTP proxy, we can use CONNECT or direct request
       if (type === 'http' || type === 'https') {
+        const headers: Record<string, string> = {};
+        if (user || pass) {
+          const auth = Buffer.from(`${user || ''}:${pass || ''}`).toString('base64');
+          headers['Proxy-Authorization'] = `Basic ${auth}`;
+        }
+
         const proxyOptions = {
           hostname: host,
           port,
           path: 'http://api.ipify.org/',
           method: 'GET',
           timeout,
+          headers,
         };
 
         const req = http.request(proxyOptions, (res) => {
+          if (res.statusCode === 407) {
+            res.resume();
+            reject(new Error('Proxy authentication failed'));
+            return;
+          }
+
+          if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+            res.resume();
+            reject(new Error(`Proxy returned HTTP ${res.statusCode || 'unknown'}`));
+            return;
+          }
+
           let data = '';
           res.on('data', (chunk) => (data += chunk));
-          res.on('end', () => resolve(data.trim()));
+          res.on('end', () => {
+            const ip = data.trim();
+            if (!ip) {
+              reject(new Error('Proxy did not return an external IP'));
+              return;
+            }
+            resolve(ip);
+          });
         });
 
         req.on('timeout', () => {
@@ -160,4 +192,3 @@ export class ProxyChecker {
     });
   }
 }
-
