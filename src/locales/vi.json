@@ -151,6 +151,8 @@
         "checkUpdate": "Kiểm tra bản cập nhật",
         "checkUpdateOnStartup": "Kiểm tra cập nhật khi khởi động",
         "checkUpdateOnStartupDesc": "Tự động kiểm tra phiên bản mới khi ứng dụng khởi động",
+        "includePrereleaseUpdates": "Nhận bản cập nhật pre-release",
+        "includePrereleaseUpdatesDesc": "Bao gồm các bản pre-release trên GitHub khi kiểm tra cập nhật và cho phép cài bản pre-release mới nhất",
         "checking": "Đang kiểm tra cập nhật...",
         "upToDate": "Bạn đang dùng phiên bản mới nhất",
         "updateAvailable": "Phiên bản mới v{{version}} đã sẵn sàng!",

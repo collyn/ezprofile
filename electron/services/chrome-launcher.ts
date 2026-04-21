@@ -415,15 +415,22 @@ export class ChromeLauncher {
         || fp.screenWidth || fp.screenHeight || fp.hardwareConcurrency || fp.deviceMemory;
 
       if (!hasHardwareOverride) {
-        const resolved = resolveHardwareFromSeed(seed);
-        fp.platform = resolved.platform;
-        fp.gpuVendor = resolved.gpuVendor;
-        fp.gpuRenderer = resolved.gpuRenderer;
-        fp.screenWidth = resolved.screenWidth;
-        fp.screenHeight = resolved.screenHeight;
-        fp.hardwareConcurrency = resolved.hardwareConcurrency;
-        fp.deviceMemory = resolved.deviceMemory;
-        console.log(`[ChromeLauncher] Seed-resolved hardware: ${resolved.name} (${resolved.category})`);
+        try {
+          const resolved = resolveHardwareFromSeed(seed);
+          fp.platform = resolved.platform;
+          fp.gpuVendor = resolved.gpuVendor;
+          fp.gpuRenderer = resolved.gpuRenderer;
+          fp.screenWidth = resolved.screenWidth;
+          fp.screenHeight = resolved.screenHeight;
+          fp.hardwareConcurrency = resolved.hardwareConcurrency;
+          fp.deviceMemory = resolved.deviceMemory;
+          console.log(`[ChromeLauncher] Seed-resolved hardware: ${resolved.name} (${resolved.category})`);
+        } catch (err) {
+          console.warn(
+            `[ChromeLauncher] Failed to resolve hardware preset for seed ${seed}; continuing without auto hardware overrides:`,
+            err
+          );
+        }
       }
 
       // Optional fingerprint flags

@@ -98,6 +98,8 @@ const electronAPI = {
   settingsImportBackup: (password: string): Promise<{ success: boolean, canceled?: boolean, error?: string }> => ipcRenderer.invoke('settings:importBackup', password),
   getCheckUpdateOnStartup: (): Promise<boolean> => ipcRenderer.invoke('settings:getCheckUpdateOnStartup'),
   setCheckUpdateOnStartup: (enabled: boolean): Promise<void> => ipcRenderer.invoke('settings:setCheckUpdateOnStartup', enabled),
+  getIncludePrereleaseUpdates: (): Promise<boolean> => ipcRenderer.invoke('settings:getIncludePrereleaseUpdates'),
+  setIncludePrereleaseUpdates: (enabled: boolean): Promise<void> => ipcRenderer.invoke('settings:setIncludePrereleaseUpdates', enabled),
 
   // Browser version management
   getAvailableBrowserVersions: () => ipcRenderer.invoke('browser:getAvailable'),

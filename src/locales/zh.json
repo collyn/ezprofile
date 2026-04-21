@@ -151,6 +151,8 @@
         "checkUpdate": "检查更新",
         "checkUpdateOnStartup": "启动时检查更新",
         "checkUpdateOnStartupDesc": "应用启动时自动检查新版本",
+        "includePrereleaseUpdates": "接收预发布更新",
+        "includePrereleaseUpdatesDesc": "检查更新时包含 GitHub 预发布版本，并允许更新到最新的预发布版本",
         "checking": "正在检查更新...",
         "upToDate": "您正在使用最新版本",
         "updateAvailable": "新版本 v{{version}} 可用！",

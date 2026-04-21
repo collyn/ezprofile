@@ -151,6 +151,8 @@
         "checkUpdate": "アップデートを確認",
         "checkUpdateOnStartup": "起動時にアップデートを確認",
         "checkUpdateOnStartupDesc": "アプリ起動時に新しいバージョンを自動的に確認します",
+        "includePrereleaseUpdates": "プレリリース更新を受け取る",
+        "includePrereleaseUpdatesDesc": "更新確認時に GitHub のプレリリースも含め、最新のプレリリースへ更新できるようにします",
         "checking": "アップデートを確認中...",
         "upToDate": "最新バージョンを使用しています",
         "updateAvailable": "新しいバージョン v{{version}} が利用可能です！",

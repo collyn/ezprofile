@@ -67,6 +67,8 @@ declare global {
       settingsImportBackup: (password: string) => Promise<{ success: boolean, canceled?: boolean, error?: string }>;
       getCheckUpdateOnStartup: () => Promise<boolean>;
       setCheckUpdateOnStartup: (enabled: boolean) => Promise<void>;
+      getIncludePrereleaseUpdates: () => Promise<boolean>;
+      setIncludePrereleaseUpdates: (enabled: boolean) => Promise<void>;
 
       // Browser version management
       getAvailableBrowserVersions: () => Promise<ChromeVersionInfo[]>;

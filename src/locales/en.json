@@ -151,6 +151,8 @@
         "checkUpdate": "Check for updates",
         "checkUpdateOnStartup": "Check for updates on startup",
         "checkUpdateOnStartupDesc": "Automatically check for new versions when the app starts",
+        "includePrereleaseUpdates": "Receive pre-release updates",
+        "includePrereleaseUpdatesDesc": "Include GitHub pre-releases when checking for updates and allow installing the newest pre-release version",
         "checking": "Checking for updates...",
         "upToDate": "You are using the latest version",
         "updateAvailable": "New version v{{version}} is available!",

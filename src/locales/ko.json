@@ -151,6 +151,8 @@
         "checkUpdate": "업데이트 확인",
         "checkUpdateOnStartup": "시작 시 업데이트 확인",
         "checkUpdateOnStartupDesc": "앱이 시작될 때 최신 버전을 자동으로 확인합니다.",
+        "includePrereleaseUpdates": "프리릴리스 업데이트 받기",
+        "includePrereleaseUpdatesDesc": "업데이트 확인 시 GitHub 프리릴리스를 포함하고 최신 프리릴리스 버전으로 업데이트할 수 있습니다",
         "checking": "업데이트 확인 중...",
         "upToDate": "최신 버전을 사용 중입니다",
         "updateAvailable": "새 버전 v{{version}}이(가) 준비되었습니다!",

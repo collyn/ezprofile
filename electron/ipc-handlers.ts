@@ -30,6 +30,10 @@ export function registerIpcHandlers(
   syncScheduler?: SyncScheduler,
   extensionManager?: ExtensionManager
 ) {
+  const applyUpdaterSettings = () => {
+    autoUpdater.allowPrerelease = profileManager.getSetting('include_prerelease_updates') === 'true';
+  };
+
   // Cleanup stale 'running' statuses from crashed sessions (using lock files).
   // Runs on startup and every 60s — NOT on every getAll to avoid race conditions.
   const cleanupStaleStatuses = () => {
@@ -517,6 +521,15 @@ export function registerIpcHandlers(
     profileManager.setSetting('check_update_on_startup', enabled ? 'true' : 'false');
   });
 
+  ipcMain.handle('settings:getIncludePrereleaseUpdates', () => {
+    return profileManager.getSetting('include_prerelease_updates') === 'true';
+  });
+
+  ipcMain.handle('settings:setIncludePrereleaseUpdates', (_event, enabled: boolean) => {
+    profileManager.setSetting('include_prerelease_updates', enabled ? 'true' : 'false');
+    applyUpdaterSettings();
+  });
+
 
 
   // Window controls
@@ -674,6 +687,7 @@ export function registerIpcHandlers(
 
   // Auto-Updater handlers
   ipcMain.handle('updater:check', () => {
+    applyUpdaterSettings();
     autoUpdater.checkForUpdates();
   });
 

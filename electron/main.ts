@@ -32,6 +32,11 @@ let chromeLauncher: ChromeLauncher;
 let proxyChecker: ProxyChecker;
 let cookieManager: CookieManager;
 
+function applyUpdaterSettings(): void {
+  if (!profileManager) return;
+  autoUpdater.allowPrerelease = profileManager.getSetting('include_prerelease_updates') === 'true';
+}
+
 function createWindow() {
   const isMac = process.platform === 'darwin';
 
@@ -63,6 +68,7 @@ function createWindow() {
   chromeLauncher = new ChromeLauncher(profilesDataDir);
   proxyChecker = new ProxyChecker();
   cookieManager = new CookieManager(chromeLauncher);
+  applyUpdaterSettings();
 
   // Sync services
   const encryptionSvc = new EncryptionService();
@@ -113,6 +119,7 @@ function createWindow() {
     // Default to true if never set
     if (checkOnStartup === null || checkOnStartup === undefined || checkOnStartup === 'true') {
       setTimeout(() => {
+        applyUpdaterSettings();
         console.log('[main] Auto-checking for updates on startup...');
         autoUpdater.checkForUpdates().catch(err => {
           console.error('[main] Auto-update check failed:', err);

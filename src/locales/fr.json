@@ -151,6 +151,8 @@
         "checkUpdate": "Vérifier les mises à jour",
         "checkUpdateOnStartup": "Rechercher des mises à jour au démarrage",
         "checkUpdateOnStartupDesc": "Vérifie automatiquement les nouvelles versions",
+        "includePrereleaseUpdates": "Recevoir les mises à jour préliminaires",
+        "includePrereleaseUpdatesDesc": "Inclure les pré-releases GitHub lors de la recherche de mises à jour et permettre l'installation de la pré-release la plus récente",
         "checking": "Vérification des mises à jour...",
         "upToDate": "Vous utilisez la dernière version",
         "updateAvailable": "La nouvelle version v{{version}} est disponible !",

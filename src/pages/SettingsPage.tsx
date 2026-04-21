@@ -33,6 +33,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [settingsPassword, setSettingsPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [checkUpdateOnStartup, setCheckUpdateOnStartup] = useState(true);
+  const [includePrereleaseUpdates, setIncludePrereleaseUpdates] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -57,6 +58,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
     // Load check update on startup setting
     api.getCheckUpdateOnStartup().then(val => setCheckUpdateOnStartup(val));
+    api.getIncludePrereleaseUpdates().then(val => setIncludePrereleaseUpdates(val));
 
     // Listen for updater events
     api.onUpdaterChecking(() => {
@@ -478,6 +480,33 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <span className="toggle-slider" />
             </label>
           </div>
+
+          <div style={{
+            marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+                {t('settings.appInfo.includePrereleaseUpdates')}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {t('settings.appInfo.includePrereleaseUpdatesDesc')}
+              </div>
+            </div>
+            <label className="toggle-switch" style={{ flexShrink: 0, marginLeft: 16 }}>
+              <input
+                type="checkbox"
+                checked={includePrereleaseUpdates}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setIncludePrereleaseUpdates(val);
+                  api.setIncludePrereleaseUpdates(val);
+                  showSaved();
+                }}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
         </div>
       </section>
 
@@ -536,5 +565,4 @@ function ShortcutRow({ keys, desc }: { keys: string[]; desc: string }) {
     </div>
   );
 }
-
 
