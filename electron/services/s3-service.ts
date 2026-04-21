@@ -1,16 +1,20 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
-  DeleteObjectCommand,
-  HeadBucketCommand,
-} from '@aws-sdk/client-s3';
+import type { S3Client } from '@aws-sdk/client-s3';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
 import { EncryptionService } from './encryption-service';
 import { ProfileManager } from './profile-manager';
+
+type S3SdkModule = typeof import('@aws-sdk/client-s3');
+
+let s3SdkModule: S3SdkModule | null = null;
+
+function getS3Sdk(): S3SdkModule {
+  if (!s3SdkModule) {
+    s3SdkModule = require('@aws-sdk/client-s3') as S3SdkModule;
+  }
+  return s3SdkModule;
+}
 
 export interface S3Config {
   accessKeyId: string;
@@ -46,6 +50,7 @@ export class S3Service {
 
   configure(config: S3Config): void {
     this.config = config;
+    const { S3Client } = getS3Sdk();
 
     let parsedEndpoint = config.endpoint?.trim() || undefined;
     if (parsedEndpoint) {
@@ -129,6 +134,7 @@ export class S3Service {
     if (!this.client || !this.config) return { success: false, error: 'Not configured' };
     try {
       // HeadBucket often fails with UnknownError/Forbidden on scoped tokens (R2, etc)
+      const { ListObjectsV2Command } = getS3Sdk();
       await this.client.send(new ListObjectsV2Command({ Bucket: this.config.bucket, MaxKeys: 1 }));
       return { success: true };
     } catch (err: any) {
@@ -144,6 +150,7 @@ export class S3Service {
   async uploadFile(localPath: string, s3Key: string, onProgress?: (bytes: number) => void): Promise<void> {
     this.assertConfigured();
     const fileContent = fs.readFileSync(localPath);
+    const { PutObjectCommand } = getS3Sdk();
     await this.client!.send(
       new PutObjectCommand({
         Bucket: this.config!.bucket,
@@ -156,6 +163,7 @@ export class S3Service {
 
   async downloadFile(s3Key: string, localPath: string): Promise<void> {
     this.assertConfigured();
+    const { GetObjectCommand } = getS3Sdk();
     const response = await this.client!.send(
       new GetObjectCommand({ Bucket: this.config!.bucket, Key: s3Key })
     );
@@ -168,6 +176,7 @@ export class S3Service {
 
   async uploadBuffer(buffer: Buffer, s3Key: string): Promise<void> {
     this.assertConfigured();
+    const { PutObjectCommand } = getS3Sdk();
     await this.client!.send(
       new PutObjectCommand({
         Bucket: this.config!.bucket,
@@ -180,6 +189,7 @@ export class S3Service {
 
   async downloadBuffer(s3Key: string): Promise<Buffer> {
     this.assertConfigured();
+    const { GetObjectCommand } = getS3Sdk();
     const response = await this.client!.send(
       new GetObjectCommand({ Bucket: this.config!.bucket, Key: s3Key })
     );
@@ -196,6 +206,7 @@ export class S3Service {
   async listBackups(profileId?: string): Promise<BackupEntry[]> {
     this.assertConfigured();
     const prefix = profileId ? `${this.config!.prefix}${profileId}/` : this.config!.prefix;
+    const { ListObjectsV2Command } = getS3Sdk();
     const response = await this.client!.send(
       new ListObjectsV2Command({ Bucket: this.config!.bucket, Prefix: prefix })
     );
@@ -221,6 +232,7 @@ export class S3Service {
 
   async deleteBackup(s3Key: string): Promise<void> {
     this.assertConfigured();
+    const { DeleteObjectCommand } = getS3Sdk();
     await this.client!.send(
       new DeleteObjectCommand({ Bucket: this.config!.bucket, Key: s3Key })
     );

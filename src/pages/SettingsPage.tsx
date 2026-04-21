@@ -34,6 +34,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [passwordError, setPasswordError] = useState(false);
   const [checkUpdateOnStartup, setCheckUpdateOnStartup] = useState(true);
   const [includePrereleaseUpdates, setIncludePrereleaseUpdates] = useState(false);
+  const [disableGpuAcceleration, setDisableGpuAcceleration] = useState(false);
+  const [gpuRestartRequired, setGpuRestartRequired] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -59,6 +61,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     // Load check update on startup setting
     api.getCheckUpdateOnStartup().then(val => setCheckUpdateOnStartup(val));
     api.getIncludePrereleaseUpdates().then(val => setIncludePrereleaseUpdates(val));
+    api.getDisableGpuAcceleration().then(val => setDisableGpuAcceleration(val));
 
     // Listen for updater events
     api.onUpdaterChecking(() => {
@@ -334,6 +337,57 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         </div>
       </section>
 
+      {/* Rendering */}
+      <section style={{ marginBottom: 28 }}>
+        <div style={{
+          fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+          marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <ChromeIcon size={16} />
+          {t('settings.gpuAcceleration.title', { defaultValue: 'Rendering' })}
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, marginTop: 0 }}>
+          {t('settings.gpuAcceleration.desc', {
+            defaultValue: 'Disable GPU acceleration if the app flickers, renders incorrectly, or lags because of graphics driver issues. This only applies after restarting EzProfile.',
+          })}
+        </p>
+        <div style={{
+          padding: '14px',
+          background: 'var(--bg-tertiary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-color)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}>
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+              {t('settings.gpuAcceleration.disableLabel', { defaultValue: 'Disable GPU acceleration' })}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+              {gpuRestartRequired
+                ? t('settings.gpuAcceleration.restartRequired', { defaultValue: 'Restart EzProfile to apply this change.' })
+                : t('settings.gpuAcceleration.restartHint', { defaultValue: 'Recommended only when you see rendering glitches, driver instability, or remote desktop lag.' })}
+            </div>
+          </div>
+          <label className="toggle-switch" style={{ flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={disableGpuAcceleration}
+              onChange={async (e) => {
+                const val = e.target.checked;
+                setDisableGpuAcceleration(val);
+                setGpuRestartRequired(true);
+                await api.setDisableGpuAcceleration(val);
+                showSaved();
+              }}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+      </section>
+
       {/* App Info */}
       <section style={{ marginBottom: 28 }}>
         <div style={{
@@ -565,4 +619,3 @@ function ShortcutRow({ keys, desc }: { keys: string[]; desc: string }) {
     </div>
   );
 }
-

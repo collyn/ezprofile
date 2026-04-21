@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { v4 as uuidv4 } from 'uuid';
-import AdmZip from 'adm-zip';
+import type AdmZip from 'adm-zip';
 import { Profile, ProfileManager } from './profile-manager';
 import { ChromeLauncher } from './chrome-launcher';
 import { EncryptionService } from './encryption-service';
@@ -31,6 +31,15 @@ const FORMAT_VERSION = 0x01;
 
 const IGNORE_FOLDERS = ['Cache', 'Code Cache', 'GPUCache', 'Service Worker/CacheStorage', 'Sync Data', 'BrowserMetrics', 'ShaderCache', 'GrShaderCache', 'GraphiteDawnCache'];
 const IGNORE_FILES = ['SingletonLock', 'SingletonSocket', 'SingletonCookie', 'DevToolsActivePort'];
+
+let admZipModule: typeof import('adm-zip') | null = null;
+
+function getAdmZip(): typeof import('adm-zip') {
+  if (!admZipModule) {
+    admZipModule = require('adm-zip') as typeof import('adm-zip');
+  }
+  return admZipModule;
+}
 
 export interface CloudBackupEntry {
   id: string;
@@ -164,6 +173,7 @@ export class BackupManager {
       }
 
       const isEzpSync = targetZipPath.endsWith('.ezpsync');
+      const AdmZip = getAdmZip();
       const zip = new AdmZip();
       this.addDirectoryToZip(profile.user_data_dir, '', zip, IGNORE_FOLDERS, IGNORE_FILES);
 
@@ -244,6 +254,7 @@ export class BackupManager {
       }
       fs.mkdirSync(profile.user_data_dir, { recursive: true });
 
+      const AdmZip = getAdmZip();
       const zip = new AdmZip(targetZipToExtract);
       zip.extractAllTo(profile.user_data_dir, true);
 
@@ -295,6 +306,7 @@ export class BackupManager {
 
       // 1. Compress
       onProgress?.({ profileId: profile.id, message: 'Compressing profile...', percent: 10 });
+      const AdmZip = getAdmZip();
       const zip = new AdmZip();
       this.addDirectoryToZip(profile.user_data_dir, '', zip, IGNORE_FOLDERS, IGNORE_FILES);
       zip.writeZip(tmpZip);
@@ -403,6 +415,7 @@ export class BackupManager {
         fs.rmSync(profile.user_data_dir, { recursive: true, force: true });
       }
       fs.mkdirSync(profile.user_data_dir, { recursive: true });
+      const AdmZip = getAdmZip();
       const zip = new AdmZip(tmpZip);
       zip.extractAllTo(profile.user_data_dir, true);
 

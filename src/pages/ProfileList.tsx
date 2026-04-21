@@ -1,24 +1,33 @@
-import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, memo, lazy, Suspense, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProfileData, CreateProfileInput, GroupData } from '../types';
-import CreateProfileModal from '../components/CreateProfileModal';
-import EditProfileModal from '../components/EditProfileModal';
-import ContextMenu from '../components/ContextMenu';
-import GroupManagerModal from '../components/GroupManagerModal';
-import BatchAssignGroupModal from '../components/BatchAssignGroupModal';
-import BatchAssignProxyModal from '../components/BatchAssignProxyModal';
-import BrowserVersionModal from '../components/BrowserVersionModal';
-import ProxyManagerModal from '../components/ProxyManagerModal';
-import ExtensionManagerModal from '../components/ExtensionManagerModal';
-import AssignExtensionModal from '../components/AssignExtensionModal';
-import SyncProfileModal from '../components/SyncProfileModal';
-import { PassphrasePromptModal } from '../components/PassphrasePromptModal';
-import GridLaunchModal from '../components/GridLaunchModal';
 import { getAPI } from '../api';
 import { useDialog } from '../contexts/DialogContext';
 import { useToast } from '../contexts/ToastContext';
 import { PlusIcon, GridIcon, ChromeIcon, ShieldIcon, DownloadIcon, FileUpIcon, SpinnerIcon, SearchIcon, UsersIcon, UploadIcon, CloudDownloadIcon, TrashIcon, EmptyStateIcon, MoreVerticalIcon, LockIcon, LayoutGridIcon, StopCircleIcon, ToggleRightIcon, ToggleLeftIcon, PuzzleIcon } from '../components/Icons';
 import CountryFlag, { countryCodeToFlag } from '../components/CountryFlag';
+
+const CreateProfileModal = lazy(() => import('../components/CreateProfileModal'));
+const EditProfileModal = lazy(() => import('../components/EditProfileModal'));
+const ContextMenu = lazy(() => import('../components/ContextMenu'));
+const GroupManagerModal = lazy(() => import('../components/GroupManagerModal'));
+const BatchAssignGroupModal = lazy(() => import('../components/BatchAssignGroupModal'));
+const BatchAssignProxyModal = lazy(() => import('../components/BatchAssignProxyModal'));
+const BrowserVersionModal = lazy(() => import('../components/BrowserVersionModal'));
+const ProxyManagerModal = lazy(() => import('../components/ProxyManagerModal'));
+const ExtensionManagerModal = lazy(() => import('../components/ExtensionManagerModal'));
+const AssignExtensionModal = lazy(() => import('../components/AssignExtensionModal'));
+const SyncProfileModal = lazy(() => import('../components/SyncProfileModal'));
+const PassphrasePromptModal = lazy(() =>
+  import('../components/PassphrasePromptModal').then((module) => ({
+    default: module.PassphrasePromptModal,
+  }))
+);
+const GridLaunchModal = lazy(() => import('../components/GridLaunchModal'));
+
+function ModalSuspense({ children }: { children: ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
 
 interface ProfileListProps {
   profiles: ProfileData[];
@@ -585,190 +594,185 @@ export default function ProfileList({
         )}
       </div>
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <CreateProfileModal
-          groups={groups}
-          onClose={() => setShowCreateModal(false)}
-          onCreate={onCreateProfile}
-        />
-      )}
+      <ModalSuspense>
+        {/* Create Modal */}
+        {showCreateModal && (
+          <CreateProfileModal
+            groups={groups}
+            onClose={() => setShowCreateModal(false)}
+            onCreate={onCreateProfile}
+          />
+        )}
 
-      {/* Edit Modal */}
-      {editingProfile && (
-        <EditProfileModal
-          groups={groups}
-          profile={editingProfile}
-          onClose={() => setEditingProfile(null)}
-          onSave={onUpdateProfile}
-        />
-      )}
+        {/* Edit Modal */}
+        {editingProfile && (
+          <EditProfileModal
+            groups={groups}
+            profile={editingProfile}
+            onClose={() => setEditingProfile(null)}
+            onSave={onUpdateProfile}
+          />
+        )}
 
-      {/* Group Manager Modal */}
-      {showGroupManager && (
-        <GroupManagerModal
-          groups={groups}
-          onClose={() => setShowGroupManager(false)}
-          onRefresh={onRefreshGroups}
-        />
-      )}
+        {/* Group Manager Modal */}
+        {showGroupManager && (
+          <GroupManagerModal
+            groups={groups}
+            onClose={() => setShowGroupManager(false)}
+            onRefresh={onRefreshGroups}
+          />
+        )}
 
-      {/* Batch Assign Group Modal */}
-      {showBatchGroupModal && (
-        <BatchAssignGroupModal
-          groups={groups}
-          selectedCount={selectedIds.size}
-          onClose={() => setShowBatchGroupModal(false)}
-          onSave={async (groupName) => {
-            await onUpdateProfiles(Array.from(selectedIds), { group_name: groupName || undefined });
-            setShowBatchGroupModal(false);
-          }}
-        />
-      )}
+        {/* Batch Assign Group Modal */}
+        {showBatchGroupModal && (
+          <BatchAssignGroupModal
+            groups={groups}
+            selectedCount={selectedIds.size}
+            onClose={() => setShowBatchGroupModal(false)}
+            onSave={async (groupName) => {
+              await onUpdateProfiles(Array.from(selectedIds), { group_name: groupName || undefined });
+              setShowBatchGroupModal(false);
+            }}
+          />
+        )}
 
-      {/* Batch Assign Proxy Modal */}
-      {showBatchProxyModal && (
-        <BatchAssignProxyModal
-          selectedCount={selectedIds.size}
-          onClose={() => setShowBatchProxyModal(false)}
-          onSave={async (proxyData) => {
-            const data: Partial<CreateProfileInput> = {
-              proxy_type: proxyData.proxy_type || undefined,
-              proxy_host: proxyData.proxy_host || undefined,
-              proxy_port: proxyData.proxy_port || undefined,
-              proxy_user: proxyData.proxy_user || undefined,
-              proxy_pass: proxyData.proxy_pass || undefined,
-            };
-            // If the user explicitly sets to null, the backend or update wrapper needs to handle it.
-            // CreateProfileInput has proxy fields as optional strings/numbers so undefined is omitted.
-            await onUpdateProfiles(Array.from(selectedIds), proxyData as any);
-            setShowBatchProxyModal(false);
-          }}
-        />
-      )}
+        {/* Batch Assign Proxy Modal */}
+        {showBatchProxyModal && (
+          <BatchAssignProxyModal
+            selectedCount={selectedIds.size}
+            onClose={() => setShowBatchProxyModal(false)}
+            onSave={async (proxyData) => {
+              // If the user explicitly sets to null, the backend or update wrapper needs to handle it.
+              // CreateProfileInput has proxy fields as optional strings/numbers so undefined is omitted.
+              await onUpdateProfiles(Array.from(selectedIds), proxyData as any);
+              setShowBatchProxyModal(false);
+            }}
+          />
+        )}
 
-      {/* Grid Launch Modal */}
-      {showGridLaunchModal && (
-        <GridLaunchModal
-          selectedCount={selectedIds.size}
-          onClose={() => setShowGridLaunchModal(false)}
-          onLaunch={handleGridLaunch}
-        />
-      )}
+        {/* Grid Launch Modal */}
+        {showGridLaunchModal && (
+          <GridLaunchModal
+            selectedCount={selectedIds.size}
+            onClose={() => setShowGridLaunchModal(false)}
+            onLaunch={handleGridLaunch}
+          />
+        )}
 
-      {/* Context Menu */}
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          profileId={contextMenu.profileId}
-          profile={profiles.find((p) => p.id === contextMenu.profileId)!}
-          cloudSyncEnabled={cloudSyncEnabled}
-          onClose={() => setContextMenu(null)}
-          onEdit={(id: string) => {
-            const profile = profiles.find((p) => p.id === id);
-            if (profile) setEditingProfile(profile);
-            setContextMenu(null);
-          }}
-          onDelete={(id: string) => {
-            onDeleteProfile(id);
-            setContextMenu(null);
-          }}
-          onLaunch={(id: string) => {
-            onLaunchProfile(id);
-            setContextMenu(null);
-          }}
-          onStop={(id: string) => {
-            onStopProfile(id);
-            setContextMenu(null);
-          }}
-          onExportCookies={(id: string) => {
-            onExportCookies(id);
-            setContextMenu(null);
-          }}
-          onImportCookies={(id: string) => {
-            onImportCookies(id);
-            setContextMenu(null);
-          }}
-          onBackupProfile={(id: string) => {
-            onBackupProfile(id);
-            setContextMenu(null);
-          }}
-          onRestoreProfile={(id: string) => {
-            onRestoreProfile(id);
-            setContextMenu(null);
-          }}
-          onCloneProfile={(id: string) => {
-            onCloneProfile(id);
-            setContextMenu(null);
-          }}
-          onSetPassword={(id: string) => {
-            onSetPassword(id);
-            setContextMenu(null);
-          }}
-          onRemovePassword={(id: string) => {
-            onRemovePassword(id);
-            setContextMenu(null);
-          }}
-          onSyncUpload={(profile: ProfileData) => {
-            setSyncModal({ profile, tab: 'upload' });
-            setContextMenu(null);
-          }}
-          onSyncRestore={(profile: ProfileData) => {
-            setSyncModal({ profile, tab: 'restore' });
-            setContextMenu(null);
-          }}
-          onDirectSyncToCloud={(id: string) => {
-            handleBatchSyncToCloud([id]);
-            setContextMenu(null);
-          }}
-          onDirectSyncFromCloud={(id: string) => {
-            handleBatchSyncFromCloud([id]);
-            setContextMenu(null);
-          }}
-        />
-      )}
+        {/* Context Menu */}
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            profileId={contextMenu.profileId}
+            profile={profiles.find((p) => p.id === contextMenu.profileId)!}
+            cloudSyncEnabled={cloudSyncEnabled}
+            onClose={() => setContextMenu(null)}
+            onEdit={(id: string) => {
+              const profile = profiles.find((p) => p.id === id);
+              if (profile) setEditingProfile(profile);
+              setContextMenu(null);
+            }}
+            onDelete={(id: string) => {
+              onDeleteProfile(id);
+              setContextMenu(null);
+            }}
+            onLaunch={(id: string) => {
+              onLaunchProfile(id);
+              setContextMenu(null);
+            }}
+            onStop={(id: string) => {
+              onStopProfile(id);
+              setContextMenu(null);
+            }}
+            onExportCookies={(id: string) => {
+              onExportCookies(id);
+              setContextMenu(null);
+            }}
+            onImportCookies={(id: string) => {
+              onImportCookies(id);
+              setContextMenu(null);
+            }}
+            onBackupProfile={(id: string) => {
+              onBackupProfile(id);
+              setContextMenu(null);
+            }}
+            onRestoreProfile={(id: string) => {
+              onRestoreProfile(id);
+              setContextMenu(null);
+            }}
+            onCloneProfile={(id: string) => {
+              onCloneProfile(id);
+              setContextMenu(null);
+            }}
+            onSetPassword={(id: string) => {
+              onSetPassword(id);
+              setContextMenu(null);
+            }}
+            onRemovePassword={(id: string) => {
+              onRemovePassword(id);
+              setContextMenu(null);
+            }}
+            onSyncUpload={(profile: ProfileData) => {
+              setSyncModal({ profile, tab: 'upload' });
+              setContextMenu(null);
+            }}
+            onSyncRestore={(profile: ProfileData) => {
+              setSyncModal({ profile, tab: 'restore' });
+              setContextMenu(null);
+            }}
+            onDirectSyncToCloud={(id: string) => {
+              handleBatchSyncToCloud([id]);
+              setContextMenu(null);
+            }}
+            onDirectSyncFromCloud={(id: string) => {
+              handleBatchSyncFromCloud([id]);
+              setContextMenu(null);
+            }}
+          />
+        )}
 
-      {showBrowserVersionModal && (
-        <BrowserVersionModal onClose={() => setShowBrowserVersionModal(false)} />
-      )}
+        {showBrowserVersionModal && (
+          <BrowserVersionModal onClose={() => setShowBrowserVersionModal(false)} />
+        )}
 
-      {showProxyManager && (
-        <ProxyManagerModal onClose={() => setShowProxyManager(false)} />
-      )}
+        {showProxyManager && (
+          <ProxyManagerModal onClose={() => setShowProxyManager(false)} />
+        )}
 
-      {showExtensionManager && (
-        <ExtensionManagerModal onClose={() => setShowExtensionManager(false)} />
-      )}
+        {showExtensionManager && (
+          <ExtensionManagerModal onClose={() => setShowExtensionManager(false)} />
+        )}
 
-      {showAssignExtension && (
-        <AssignExtensionModal
-          profileIds={Array.from(selectedIds)}
-          onClose={() => setShowAssignExtension(false)}
-          onSaved={() => {}}
-        />
-      )}
+        {showAssignExtension && (
+          <AssignExtensionModal
+            profileIds={Array.from(selectedIds)}
+            onClose={() => setShowAssignExtension(false)}
+            onSaved={() => {}}
+          />
+        )}
 
-      {/* Cloud Sync Modal */}
-      {syncModal && (
-        <SyncProfileModal
-          profile={syncModal.profile}
-          initialTab={syncModal.tab}
-          onClose={() => setSyncModal(null)}
-        />
-      )}
+        {/* Cloud Sync Modal */}
+        {syncModal && (
+          <SyncProfileModal
+            profile={syncModal.profile}
+            initialTab={syncModal.tab}
+            onClose={() => setSyncModal(null)}
+          />
+        )}
 
-      {/* Passphrase Prompt Modal */}
-      {pendingPassphraseAction && (
-        <PassphrasePromptModal
-          onCancel={() => setPendingPassphraseAction(null)}
-          onComplete={() => {
-            const action = pendingPassphraseAction;
-            setPendingPassphraseAction(null);
-            action();
-          }}
-        />
-      )}
+        {/* Passphrase Prompt Modal */}
+        {pendingPassphraseAction && (
+          <PassphrasePromptModal
+            onCancel={() => setPendingPassphraseAction(null)}
+            onComplete={() => {
+              const action = pendingPassphraseAction;
+              setPendingPassphraseAction(null);
+              action();
+            }}
+          />
+        )}
+      </ModalSuspense>
     </>
   );
 }

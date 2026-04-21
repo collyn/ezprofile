@@ -69,6 +69,8 @@ declare global {
       setCheckUpdateOnStartup: (enabled: boolean) => Promise<void>;
       getIncludePrereleaseUpdates: () => Promise<boolean>;
       setIncludePrereleaseUpdates: (enabled: boolean) => Promise<void>;
+      getDisableGpuAcceleration: () => Promise<boolean>;
+      setDisableGpuAcceleration: (enabled: boolean) => Promise<void>;
 
       // Browser version management
       getAvailableBrowserVersions: () => Promise<ChromeVersionInfo[]>;

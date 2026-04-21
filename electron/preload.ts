@@ -100,6 +100,8 @@ const electronAPI = {
   setCheckUpdateOnStartup: (enabled: boolean): Promise<void> => ipcRenderer.invoke('settings:setCheckUpdateOnStartup', enabled),
   getIncludePrereleaseUpdates: (): Promise<boolean> => ipcRenderer.invoke('settings:getIncludePrereleaseUpdates'),
   setIncludePrereleaseUpdates: (enabled: boolean): Promise<void> => ipcRenderer.invoke('settings:setIncludePrereleaseUpdates', enabled),
+  getDisableGpuAcceleration: (): Promise<boolean> => ipcRenderer.invoke('settings:getDisableGpuAcceleration'),
+  setDisableGpuAcceleration: (enabled: boolean): Promise<void> => ipcRenderer.invoke('settings:setDisableGpuAcceleration', enabled),
 
   // Browser version management
   getAvailableBrowserVersions: () => ipcRenderer.invoke('browser:getAvailable'),

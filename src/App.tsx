@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProfileData, CreateProfileInput } from './types';
 import { getAPI } from './api';
 import TitleBar from './components/TitleBar';
 import ProfileList from './pages/ProfileList';
-import SettingsPage from './pages/SettingsPage';
-import PasswordModal from './components/PasswordModal';
 
 const api = getAPI();
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const PasswordModal = lazy(() => import('./components/PasswordModal'));
 
 function App() {
   const { t } = useTranslation();
@@ -16,6 +16,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<{ id: number; type: string; message: string }[]>([]);
   const [currentView, setCurrentView] = useState<'profiles' | 'settings'>('profiles');
+  const [isWindowActive, setIsWindowActive] = useState(true);
   const [passwordModal, setPasswordModal] = useState<{
     mode: 'set' | 'verify' | 'remove';
     profileId: string;
@@ -52,8 +53,8 @@ function App() {
   }, [addToast, t]);
 
   useEffect(() => {
-    loadProfiles();
-    loadGroups();
+    void loadProfiles();
+    void loadGroups();
     api.onProfileStatusChanged((profileId: string, status: string) => {
       setProfiles((prev) =>
         prev.map((p) => (p.id === profileId ? { ...p, status: status as 'ready' | 'running' } : p))
@@ -67,14 +68,51 @@ function App() {
     api.onUpdateAvailable((info) => {
       addToast('info', t('settings.appInfo.updateAvailableToast', { version: info.version }));
     });
+  }, [loadProfiles, loadGroups, addToast, t]);
 
-    // Periodic polling to sync profile status across RDP sessions
-    const pollInterval = setInterval(() => {
-      loadProfiles();
-    }, 5000);
+  useEffect(() => {
+    const handleFocus = () => {
+      setIsWindowActive(true);
+      void loadProfiles();
+    };
+    const handleBlur = () => {
+      if (document.visibilityState === 'visible') {
+        setIsWindowActive(false);
+      }
+    };
+    const handleVisibilityChange = () => {
+      const visible = document.visibilityState === 'visible';
+      setIsWindowActive(visible && document.hasFocus());
+      if (visible) {
+        void loadProfiles();
+      }
+    };
 
-    return () => clearInterval(pollInterval);
-  }, [loadProfiles, loadGroups, addToast]);
+    setIsWindowActive(document.visibilityState === 'visible' && document.hasFocus());
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadProfiles]);
+
+  const hasRunningProfiles = profiles.some((profile) => profile.status === 'running');
+
+  useEffect(() => {
+    if (currentView !== 'profiles' || !hasRunningProfiles || !isWindowActive) {
+      return;
+    }
+
+    const pollInterval = window.setInterval(() => {
+      void loadProfiles();
+    }, 15000);
+
+    return () => window.clearInterval(pollInterval);
+  }, [currentView, hasRunningProfiles, isWindowActive, loadProfiles]);
 
   const handleCreateProfile = async (input: CreateProfileInput) => {
     try {
@@ -284,7 +322,9 @@ function App() {
       <div className="app-container">
         <div className="main-content">
           {currentView === 'settings' ? (
-            <SettingsPage onBack={() => setCurrentView('profiles')} />
+            <Suspense fallback={null}>
+              <SettingsPage onBack={() => setCurrentView('profiles')} />
+            </Suspense>
           ) : (
             <ProfileList
             profiles={profiles}
@@ -314,30 +354,32 @@ function App() {
 
       {/* Password Modal */}
       {passwordModal && (
-        <PasswordModal
-          mode={passwordModal.mode}
-          profileName={passwordModal.profileName}
-          onClose={() => setPasswordModal(null)}
-          onConfirm={async (password: string) => {
-            const { mode, profileId, pendingAction } = passwordModal;
-            if (mode === 'set') {
-              await api.setProfilePassword(profileId, password);
-              setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, has_password: true } : p));
-              addToast('success', t('app.toasts.passwordSet'));
-              setPasswordModal(null);
-            } else if (mode === 'remove') {
-              await api.removeProfilePassword(profileId, password);
-              setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, has_password: false } : p));
-              addToast('success', t('app.toasts.passwordRemoved'));
-              setPasswordModal(null);
-            } else if (mode === 'verify') {
-              const valid = await api.verifyProfilePassword(profileId, password);
-              if (!valid) throw new Error(t('passwordModal.wrongPassword'));
-              setPasswordModal(null);
-              if (pendingAction) await pendingAction();
-            }
-          }}
-        />
+        <Suspense fallback={null}>
+          <PasswordModal
+            mode={passwordModal.mode}
+            profileName={passwordModal.profileName}
+            onClose={() => setPasswordModal(null)}
+            onConfirm={async (password: string) => {
+              const { mode, profileId, pendingAction } = passwordModal;
+              if (mode === 'set') {
+                await api.setProfilePassword(profileId, password);
+                setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, has_password: true } : p));
+                addToast('success', t('app.toasts.passwordSet'));
+                setPasswordModal(null);
+              } else if (mode === 'remove') {
+                await api.removeProfilePassword(profileId, password);
+                setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, has_password: false } : p));
+                addToast('success', t('app.toasts.passwordRemoved'));
+                setPasswordModal(null);
+              } else if (mode === 'verify') {
+                const valid = await api.verifyProfilePassword(profileId, password);
+                if (!valid) throw new Error(t('passwordModal.wrongPassword'));
+                setPasswordModal(null);
+                if (pendingAction) await pendingAction();
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Toast notifications */}

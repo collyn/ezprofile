@@ -1,4 +1,3 @@
-import puppeteer from 'puppeteer-core';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -18,6 +17,15 @@ const SESSION_FILES = [
   'Secure Preferences',
 ];
 const SESSION_DIRS = ['Sessions'];
+
+let puppeteerModule: typeof import('puppeteer-core') | null = null;
+
+function getPuppeteer(): typeof import('puppeteer-core') {
+  if (!puppeteerModule) {
+    puppeteerModule = require('puppeteer-core') as typeof import('puppeteer-core');
+  }
+  return puppeteerModule;
+}
 
 export class CookieManager {
   private browserVersionManager: BrowserVersionManager | null = null;
@@ -162,6 +170,7 @@ export class CookieManager {
     }
 
     const sessionBackup = this.backupSession(profile.user_data_dir);
+    const puppeteer = getPuppeteer();
 
     const browser = await puppeteer.launch({
       executablePath: this.resolveChromePath(profile),
@@ -202,6 +211,7 @@ export class CookieManager {
     console.log(`[CookieManager] Extracting cookies via CDP for profile ${profile.id}`);
 
     const sessionBackup = this.backupSession(profile.user_data_dir);
+    const puppeteer = getPuppeteer();
 
     const browser = await puppeteer.launch({
       executablePath: this.resolveChromePath(profile),
@@ -308,6 +318,7 @@ export class CookieManager {
     });
 
     const sessionBackup = this.backupSession(profile.user_data_dir);
+    const puppeteer = getPuppeteer();
 
     const browser = await puppeteer.launch({
       executablePath: this.resolveChromePath(profile),
@@ -368,6 +379,7 @@ export class CookieManager {
     // Preserve session data from the freshly extracted backup.
     // Chrome headless will overwrite Preferences/Sessions when it runs.
     const sessionBackup = this.backupSession(profile.user_data_dir);
+    const puppeteer = getPuppeteer();
 
     const browser = await puppeteer.launch({
       executablePath: this.resolveChromePath(profile),

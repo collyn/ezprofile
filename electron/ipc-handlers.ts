@@ -530,6 +530,14 @@ export function registerIpcHandlers(
     applyUpdaterSettings();
   });
 
+  ipcMain.handle('settings:getDisableGpuAcceleration', () => {
+    return profileManager.getSetting('disable_gpu_acceleration') === 'true';
+  });
+
+  ipcMain.handle('settings:setDisableGpuAcceleration', (_event, enabled: boolean) => {
+    profileManager.setSetting('disable_gpu_acceleration', enabled ? 'true' : 'false');
+  });
+
 
 
   // Window controls

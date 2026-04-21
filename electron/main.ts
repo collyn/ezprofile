@@ -14,6 +14,8 @@ import { autoUpdater } from 'electron-updater';
 import { BrowserVersionManager } from './services/browser-version-manager';
 import { registerIpcHandlers } from './ipc-handlers';
 
+const dbPath = path.join(app.getPath('userData'), 'ezprofile.db');
+
 // Fix SUID sandbox issue on Linux (packaged mode)
 if (process.platform === 'linux') {
   process.env.ELECTRON_DISABLE_SANDBOX = '1';
@@ -27,10 +29,14 @@ app.commandLine.appendSwitch('log-level', '3');
 app.commandLine.appendSwitch('silent-debugger-extension-api');
 
 let mainWindow: BrowserWindow | null = null;
-let profileManager: ProfileManager;
+let profileManager: ProfileManager = new ProfileManager(dbPath);
 let chromeLauncher: ChromeLauncher;
 let proxyChecker: ProxyChecker;
 let cookieManager: CookieManager;
+
+if (profileManager.getSetting('disable_gpu_acceleration') === 'true') {
+  app.disableHardwareAcceleration();
+}
 
 function applyUpdaterSettings(): void {
   if (!profileManager) return;
@@ -62,9 +68,7 @@ function createWindow() {
   });
 
   // Initialize services
-  const dbPath = path.join(app.getPath('userData'), 'ezprofile.db');
   const profilesDataDir = path.join(app.getPath('userData'), 'profiles');
-  profileManager = new ProfileManager(dbPath);
   chromeLauncher = new ChromeLauncher(profilesDataDir);
   proxyChecker = new ProxyChecker();
   cookieManager = new CookieManager(chromeLauncher);

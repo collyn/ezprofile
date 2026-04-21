@@ -13,7 +13,6 @@ import * as url from 'url';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { shell } from 'electron';
-import { Readable } from 'stream';
 import { EncryptionService } from './encryption-service';
 import { ProfileManager } from './profile-manager';
 
@@ -69,8 +68,6 @@ async function driveRequest(
   body?: any,
   contentType?: string
 ): Promise<any> {
-  const { default: fetch } = await import('node-fetch');
-
   let fullUrl = endpoint;
   if (params) {
     const qs = new URLSearchParams(params).toString();
@@ -174,7 +171,6 @@ export class GDriveService {
     // 4. Exchange code → tokens
     // Google requires client_secret for Desktop app type (it's a "public secret" — safe to ship)
     // PKCE (code_verifier) provides additional security against code interception
-    const { default: fetch } = await import('node-fetch');
     const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -218,7 +214,6 @@ export class GDriveService {
   async revokeAuth(): Promise<void> {
     if (this.accessToken) {
       try {
-        const { default: fetch } = await import('node-fetch');
         await fetch(`https://oauth2.googleapis.com/revoke?token=${this.accessToken}`, { method: 'POST' });
       } catch {}
     }
@@ -254,7 +249,6 @@ export class GDriveService {
     const clientSecret = this.getClientSecret();
     if (!clientSecret) throw new Error('Google Client Secret not configured');
 
-    const { default: fetch } = await import('node-fetch');
     const res = await fetch(GOOGLE_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -354,8 +348,6 @@ export class GDriveService {
       console.warn(`[GDrive] Failed to check for existing file ${remoteFileName}:`, e);
     }
 
-    const { default: fetch } = await import('node-fetch');
-
     const fileData = fs.readFileSync(localPath);
     const stat = fs.statSync(localPath);
 
@@ -392,20 +384,14 @@ export class GDriveService {
 
   async downloadFile(fileId: string, localPath: string): Promise<void> {
     const token = await this.ensureValidToken();
-    const { default: fetch } = await import('node-fetch');
-
     const res = await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}?alt=media`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!res.ok) throw new Error(`Drive download failed: ${res.status}`);
 
-    const dest = fs.createWriteStream(localPath);
-    await new Promise<void>((resolve, reject) => {
-      res.body!.pipe(dest);
-      res.body!.on('error', reject);
-      dest.on('finish', resolve);
-    });
+    const arrayBuffer = await res.arrayBuffer();
+    fs.writeFileSync(localPath, Buffer.from(arrayBuffer));
   }
 
   async uploadBuffer(buffer: Buffer, remoteFileName: string): Promise<string> {
@@ -424,8 +410,6 @@ export class GDriveService {
     } catch (e) {
       console.warn(`[GDrive] Failed to check for existing file ${remoteFileName}:`, e);
     }
-
-    const { default: fetch } = await import('node-fetch');
 
     const boundary = '-------ezprofile_boundary';
     const metadata = JSON.stringify({ name: remoteFileName, parents: [folderId] });
@@ -467,8 +451,6 @@ export class GDriveService {
     if (!searchRes.files || searchRes.files.length === 0) return null;
     
     const fileId = searchRes.files[0].id;
-    const { default: fetch } = await import('node-fetch');
-
     const res = await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}?alt=media`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -512,7 +494,6 @@ export class GDriveService {
 
   async deleteBackup(fileId: string): Promise<void> {
     const token = await this.ensureValidToken();
-    const { default: fetch } = await import('node-fetch');
     await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },

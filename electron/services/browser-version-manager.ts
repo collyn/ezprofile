@@ -4,8 +4,17 @@ import * as os from 'os';
 import * as https from 'https';
 import * as http from 'http';
 import { execSync } from 'child_process';
-import AdmZip from 'adm-zip';
+import type AdmZip from 'adm-zip';
 import { app, WebContents } from 'electron';
+
+let admZipModule: typeof import('adm-zip') | null = null;
+
+function getAdmZip(): typeof import('adm-zip') {
+  if (!admZipModule) {
+    admZipModule = require('adm-zip') as typeof import('adm-zip');
+  }
+  return admZipModule;
+}
 
 const CHROME_VERSIONS_API = 'https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json';
 const CHROME_STABLE_API = 'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json';
@@ -377,6 +386,7 @@ export class BrowserVersionManager {
 
       if (ext === '.zip') {
         // Windows: extract ZIP
+        const AdmZip = getAdmZip();
         const zip = new AdmZip(archivePath);
         zip.extractAllTo(versionDir, true);
       } else {
@@ -641,6 +651,7 @@ export class BrowserVersionManager {
       }
       fs.mkdirSync(versionDir, { recursive: true });
 
+      const AdmZip = getAdmZip();
       const zip = new AdmZip(zipPath);
       zip.extractAllTo(versionDir, true);
 
