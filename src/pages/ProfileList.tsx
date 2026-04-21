@@ -808,11 +808,7 @@ const ProfileRow = memo(function ProfileRow({
     <tr
       className={`${isSelected ? 'selected' : ''} ${profile.status === 'running' ? 'running' : ''}`}
       onContextMenu={(e) => onContextMenu(e, profile.id)}
-      onClick={() => {
-        if (profile.status === 'running') {
-          window.electronAPI.focusProfile(profile.id);
-        }
-      }}
+      onClick={() => onSelect(profile.id)}
     >
       <td>
         <div className="checkbox" onClick={(e) => e.stopPropagation()}>
