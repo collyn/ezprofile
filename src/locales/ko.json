@@ -277,6 +277,7 @@
       "fingerprintSeed": "지문 시드값",
       "fingerprintSeedPlaceholder": "모든 시드는 시스템에 의해 랜덤하게 생성됩니다 (빈칸)",
       "fingerprintSeedHint": "각 프로필당 고유한 시드가 생성되며, 시드가 같으면 브라우저 지문도 같습니다.",
+      "fingerprintGenerateSeed": "Generate",
       "fingerprintPlatform": "운영 체제",
       "fingerprintPlatformAuto": "자동",
       "fingerprintGpuVendor": "GPU 공급업체",

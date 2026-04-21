@@ -54,7 +54,8 @@
           ]
         }
       ],
-      "icon": "public/icon.png"
+      "icon": "public/icon.png",
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,

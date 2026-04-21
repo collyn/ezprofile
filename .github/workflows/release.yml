@@ -48,12 +48,25 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Build Electron distributables
+      - name: Build Electron distributables (Windows)
+        if: matrix.platform == 'win'
+        run: npx electron-builder --${{ matrix.platform }} --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Electron distributables (macOS)
+        if: matrix.platform == 'mac'
         run: npx electron-builder --${{ matrix.platform }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Build Electron distributables (Linux)
+        if: matrix.platform == 'linux'
+        run: npx electron-builder --${{ matrix.platform }} --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

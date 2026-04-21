@@ -277,6 +277,7 @@
       "fingerprintSeed": "フィンガープリント シード",
       "fingerprintSeedPlaceholder": "自動生成（空白のままにする）",
       "fingerprintSeedHint": "すべてのプロファイルごとに固有のシードが自動生成されます。シードが同じ＝ブラウザのフィンガープリントの識別情報がすべてのセッションで同じになります。",
+      "fingerprintGenerateSeed": "Generate",
       "fingerprintPlatform": "プラットフォーム",
       "fingerprintPlatformAuto": "自動",
       "fingerprintGpuVendor": "GPU ベンダー",

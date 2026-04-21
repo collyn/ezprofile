@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldIcon, Monitor, LaptopIcon, AppleIcon, TerminalIcon, ChevronDownIcon, ChevronRightIcon } from './Icons';
+import { ShieldIcon, Monitor, LaptopIcon, AppleIcon, TerminalIcon, ChevronDownIcon, ChevronRightIcon, DicesIcon } from './Icons';
 import { HARDWARE_PRESETS, PRESET_CATEGORIES, GPU_BY_PLATFORM, SCREENS_BY_PLATFORM } from '../data/hardware-presets';
+import { resolveHardwareFromSeed, generateRandomSeed } from '../utils/fingerprint-utils';
 
 interface FingerprintFlags {
   seed?: string;
@@ -186,6 +187,11 @@ export default function FingerprintSettings({ flags, onChange }: FingerprintSett
   const matchedPreset = !isAuto ? findMatchingPreset(flags) : null;
   const presetValue = isAuto ? '' : (matchedPreset?.id || 'custom');
 
+  // Seed-resolved preview: when Auto mode + seed exists, show what hardware will be used
+  const seedResolved = (isAuto && flags.seed && flags.seed.trim())
+    ? resolveHardwareFromSeed(flags.seed.trim())
+    : null;
+
   // Handle preset selection
   const handlePresetChange = (presetId: string) => {
     if (!presetId) {
@@ -309,16 +315,55 @@ export default function FingerprintSettings({ flags, onChange }: FingerprintSett
       {/* Seed */}
       <div className="form-group" style={{ marginBottom: 10 }}>
         <label style={labelStyle}>{t('profileForm.fingerprintSeed')}</label>
-        <input
-          type="text"
-          value={flags.seed || ''}
-          onChange={(e) => update('seed', e.target.value)}
-          placeholder={t('profileForm.fingerprintSeedPlaceholder')}
-          style={{ fontSize: 12 }}
-        />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            type="text"
+            value={flags.seed || ''}
+            onChange={(e) => update('seed', e.target.value)}
+            placeholder={t('profileForm.fingerprintSeedPlaceholder')}
+            style={{ fontSize: 12, flex: 1 }}
+          />
+          <button
+            type="button"
+            onClick={() => update('seed', generateRandomSeed())}
+            title={t('profileForm.fingerprintGenerateSeed')}
+            style={{
+              background: 'rgba(13, 148, 136, 0.15)', border: '1px solid rgba(13, 148, 136, 0.3)',
+              borderRadius: 4, padding: '4px 8px', cursor: 'pointer', color: '#0d9488',
+              display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, whiteSpace: 'nowrap',
+            }}
+          >
+            <DicesIcon size={13} />
+            {t('profileForm.fingerprintGenerateSeed')}
+          </button>
+        </div>
         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>
           {t('profileForm.fingerprintSeedHint')}
         </div>
+        {/* Seed-resolved hardware preview */}
+        {seedResolved && (
+          <div style={{
+            marginTop: 6, padding: '8px 10px',
+            background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.2)',
+            borderRadius: 6, fontSize: 11, color: 'var(--text-primary)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: '#0d9488', fontWeight: 600 }}>
+              {getCategoryIcon(seedResolved.category)}
+              <span>{seedResolved.name}</span>
+              <span style={{ opacity: 0.5, fontWeight: 400, fontSize: 10 }}>({seedResolved.category})</span>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px',
+              fontSize: 10, color: 'var(--text-secondary)',
+            }}>
+              <span><strong>Platform:</strong> {seedResolved.platform}</span>
+              <span><strong>Screen:</strong> {seedResolved.screenWidth}×{seedResolved.screenHeight}</span>
+              <span style={{ gridColumn: '1 / -1' }}><strong>GPU:</strong> {seedResolved.gpuRenderer}</span>
+              <span><strong>CPU:</strong> {seedResolved.hardwareConcurrency} cores</span>
+              <span><strong>Memory:</strong> {seedResolved.deviceMemory} GB</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hardware Preset Dropdown */}
@@ -454,11 +499,11 @@ export default function FingerprintSettings({ flags, onChange }: FingerprintSett
         <label style={labelStyle}>{t('profileForm.fingerprintWebrtcIp')}</label>
         <div className="form-row" style={{ gap: 8 }}>
           <select
-            value={flags.webrtcIp === 'auto' ? 'auto' : flags.webrtcIp ? 'custom' : ''}
+            value={flags.webrtcIp === 'auto' ? 'auto' : (flags.webrtcIp && flags.webrtcIp !== 'auto') ? 'custom' : ''}
             onChange={(e) => {
               if (e.target.value === '') update('webrtcIp', '');
               else if (e.target.value === 'auto') update('webrtcIp', 'auto');
-              else update('webrtcIp', '');
+              else update('webrtcIp', flags.webrtcIp && flags.webrtcIp !== 'auto' ? flags.webrtcIp : ' ');
             }}
             style={{ ...selectStyle, maxWidth: 160 }}
           >
@@ -469,8 +514,8 @@ export default function FingerprintSettings({ flags, onChange }: FingerprintSett
           {flags.webrtcIp && flags.webrtcIp !== 'auto' && (
             <input
               type="text"
-              value={flags.webrtcIp}
-              onChange={(e) => update('webrtcIp', e.target.value)}
+              value={flags.webrtcIp.trim()}
+              onChange={(e) => update('webrtcIp', e.target.value || ' ')}
               placeholder="1.2.3.4"
               style={{ fontSize: 12, flex: 1 }}
             />

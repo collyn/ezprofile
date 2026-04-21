@@ -277,6 +277,7 @@
       "fingerprintSeed": "指纹种子",
       "fingerprintSeedPlaceholder": "自动生成（留空）",
       "fingerprintSeedHint": "同一配置同一身份。",
+      "fingerprintGenerateSeed": "Generate",
       "fingerprintPlatform": "操作系统",
       "fingerprintPlatformAuto": "自动",
       "fingerprintGpuVendor": "GPU 供应商",

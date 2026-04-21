@@ -277,6 +277,7 @@
       "fingerprintSeed": "Seed de l'empreinte",
       "fingerprintSeedPlaceholder": "Généré automatiquement (laisser vide)",
       "fingerprintSeedHint": "Une seed unique est auto-générée. Même seed = même empreinte sur toutes les sessions.",
+      "fingerprintGenerateSeed": "Generate",
       "fingerprintPlatform": "Plateforme",
       "fingerprintPlatformAuto": "Auto",
       "fingerprintGpuVendor": "Le Fabricant du GPU",

@@ -5,6 +5,7 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import { BrowserVersionManager } from './browser-version-manager';
 import { ProxyBridge } from './proxy-bridge';
+import { resolveHardwareFromSeed } from '../utils/fingerprint-utils';
 
 export class ChromeLauncher {
   private processes: Map<string, ChildProcess> = new Map();
@@ -407,6 +408,24 @@ export class ChromeLauncher {
       const seed = fp.seed || crypto.randomInt(100000, 999999999).toString();
       args.push(`--fingerprint=${seed}`);
 
+      // Auto-resolve hardware from seed when no explicit overrides are set
+      // (i.e. user left Hardware Profile on "Auto").  This guarantees that
+      // the same seed always produces the same hardware fingerprint.
+      const hasHardwareOverride = fp.platform || fp.gpuVendor || fp.gpuRenderer
+        || fp.screenWidth || fp.screenHeight || fp.hardwareConcurrency || fp.deviceMemory;
+
+      if (!hasHardwareOverride) {
+        const resolved = resolveHardwareFromSeed(seed);
+        fp.platform = resolved.platform;
+        fp.gpuVendor = resolved.gpuVendor;
+        fp.gpuRenderer = resolved.gpuRenderer;
+        fp.screenWidth = resolved.screenWidth;
+        fp.screenHeight = resolved.screenHeight;
+        fp.hardwareConcurrency = resolved.hardwareConcurrency;
+        fp.deviceMemory = resolved.deviceMemory;
+        console.log(`[ChromeLauncher] Seed-resolved hardware: ${resolved.name} (${resolved.category})`);
+      }
+
       // Optional fingerprint flags
       if (fp.platform) args.push(`--fingerprint-platform=${fp.platform}`);
       if (fp.gpuVendor) args.push(`--fingerprint-gpu-vendor=${fp.gpuVendor}`);
@@ -422,8 +441,9 @@ export class ChromeLauncher {
 
       // WebRTC IP spoofing — prevent real IP leak when using a proxy.
       // If user set an explicit value, use that; otherwise auto-detect when proxy is configured.
-      if (fp.webrtcIp) {
-        args.push(`--fingerprint-webrtc-ip=${fp.webrtcIp}`);
+      const webrtcIp = fp.webrtcIp?.trim();
+      if (webrtcIp) {
+        args.push(`--fingerprint-webrtc-ip=${webrtcIp}`);
       } else if (options.proxyHost && options.proxyPort) {
         args.push('--fingerprint-webrtc-ip=auto');
       }

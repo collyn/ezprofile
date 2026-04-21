@@ -52,6 +52,7 @@ import {
   ToggleRight as ToggleRightIcon,
   Puzzle as PuzzleIcon,
   RefreshCw as RefreshCwIcon,
+  Dices as DicesIcon,
 } from 'lucide-react';
 
 export interface IconProps {
@@ -115,6 +116,7 @@ export {
   ToggleRightIcon,
   PuzzleIcon,
   RefreshCwIcon,
+  DicesIcon,
 };
 
 // --- Custom Icons ---
