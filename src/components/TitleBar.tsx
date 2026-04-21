@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAPI } from '../api';
 import { useTranslation } from 'react-i18next';
-import { LogoIcon, GlobeIcon, SettingsIcon, MinusIcon, SquareIcon, XIcon, CheckIcon } from './Icons';
+import { LogoIcon, GlobeIcon, SettingsIcon, MinusIcon, SquareIcon, XIcon, CheckIcon, TelegramIcon } from './Icons';
 
 const api = getAPI();
 
@@ -86,6 +86,15 @@ export default function TitleBar({ onOpenSettings }: TitleBarProps) {
             </div>
           )}
         </div>
+
+        {/* Telegram group link */}
+        <button
+          className="titlebar-btn telegram-btn"
+          onClick={() => api.openExternal('https://t.me/+IEuqOksJXBo1OWRl')}
+          title="Telegram"
+        >
+          <TelegramIcon size={15} />
+        </button>
 
         {onOpenSettings && (
           <button className="titlebar-btn" onClick={onOpenSettings} title={t('app.settings')}>

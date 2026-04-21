@@ -243,6 +243,16 @@ body {
   flex-shrink: 0;
 }
 
+/* Telegram button */
+.telegram-btn {
+  color: var(--text-muted);
+}
+
+.telegram-btn:hover {
+  color: #29a9eb !important;
+  background: rgba(41, 169, 235, 0.1);
+}
+
 /* ===== Main Layout ===== */
 .app-container {
   display: flex;
