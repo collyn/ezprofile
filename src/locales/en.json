@@ -48,7 +48,7 @@
       "title": "Profiles",
       "addNew": "Add New",
       "manageGroups": "Manage Groups",
-      "manageChrome": "Manage Chrome",
+      "manageBrowser": "Manage Browser",
       "manageProxies": "Manage Proxies",
       "manageExtensions": "Extensions",
       "assignExtension": "Extensions",

@@ -48,7 +48,7 @@
       "title": "프로필",
       "addNew": "추가",
       "manageGroups": "그룹 관리",
-      "manageChrome": "Chrome 관리",
+      "manageBrowser": "브라우저 관리",
       "manageProxies": "프록시 관리",
       "manageExtensions": "확장 프로그램",
       "assignExtension": "확장",

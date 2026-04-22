@@ -48,7 +48,7 @@
       "title": "プロファイル",
       "addNew": "追加",
       "manageGroups": "グループ管理",
-      "manageChrome": "Chromeの管理",
+      "manageBrowser": "ブラウザの管理",
       "manageProxies": "プロキシ管理",
       "manageExtensions": "拡張機能",
       "assignExtension": "拡張機能",

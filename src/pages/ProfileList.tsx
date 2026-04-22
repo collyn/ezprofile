@@ -400,7 +400,7 @@ export default function ProfileList({
             </button>
             <button className="btn" onClick={() => setShowBrowserVersionModal(true)}>
               <ChromeIcon />
-              {t('profiles.manageChrome')}
+              {t('profiles.manageBrowser')}
             </button>
             <button className="btn" onClick={() => setShowProxyManager(true)}>
               <ShieldIcon />

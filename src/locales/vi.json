@@ -48,7 +48,7 @@
       "title": "Profiles",
       "addNew": "Thêm mới",
       "manageGroups": "Quản lý nhóm",
-      "manageChrome": "Quản lý Chrome",
+      "manageBrowser": "Quản lý Trình duyệt",
       "manageProxies": "Quản lý Proxy",
       "manageExtensions": "Tiện ích",
       "assignExtension": "Tiện ích",

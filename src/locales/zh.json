@@ -48,7 +48,7 @@
       "title": "配置文件",
       "addNew": "添加",
       "manageGroups": "管理分组",
-      "manageChrome": "管理 Chrome",
+      "manageBrowser": "管理浏览器",
       "manageProxies": "管理代理",
       "manageExtensions": "扩展程序",
       "assignExtension": "扩展程序",
