@@ -67,48 +67,6 @@ function createWindow() {
     backgroundColor: '#0f0f14',
   });
 
-  // Initialize services
-  const profilesDataDir = path.join(app.getPath('userData'), 'profiles');
-  chromeLauncher = new ChromeLauncher(profilesDataDir);
-  proxyChecker = new ProxyChecker();
-  cookieManager = new CookieManager(chromeLauncher);
-  applyUpdaterSettings();
-
-  // Sync services
-  const encryptionSvc = new EncryptionService();
-  const s3Service = new S3Service(encryptionSvc, profileManager);
-  const gdriveService = new GDriveService(encryptionSvc, profileManager);
-  s3Service.loadFromSettings();
-
-  const backupManager = new BackupManager(chromeLauncher, encryptionSvc, profileManager, gdriveService, s3Service);
-  backupManager.setCookieManager(cookieManager);
-  const syncScheduler = new SyncScheduler(profileManager, backupManager, () => mainWindow);
-
-  // Auto-load persisted encryption key and resume auto-sync
-  const encryptedKeyHex = profileManager.getSetting('sync_encrypted_key');
-  if (encryptedKeyHex) {
-    try {
-      const keyHex = encryptionSvc.decryptString(encryptedKeyHex);
-      syncScheduler.setPassphraseKey(Buffer.from(keyHex, 'hex'));
-      console.log('[main] Encryption key loaded from DB');
-
-
-    } catch (err) {
-      console.error('[main] Failed to load encryption key (machine key changed?):', err);
-      // Clear corrupted key
-      profileManager.setSetting('sync_encrypted_key', '');
-    }
-  }
-
-  const browserVersionManager = new BrowserVersionManager();
-  chromeLauncher.setBrowserVersionManager(browserVersionManager);
-  cookieManager.setBrowserVersionManager(browserVersionManager);
-
-  const extensionManager = new ExtensionManager(app.getPath('userData'));
-
-  // Register IPC handlers
-  registerIpcHandlers(ipcMain, profileManager, chromeLauncher, proxyChecker, cookieManager, backupManager, browserVersionManager, mainWindow, encryptionSvc, gdriveService, s3Service, syncScheduler, extensionManager);
-
   // Load UI
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
@@ -137,7 +95,49 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // Initialize services once
+  const profilesDataDir = path.join(app.getPath('userData'), 'profiles');
+  chromeLauncher = new ChromeLauncher(profilesDataDir);
+  proxyChecker = new ProxyChecker();
+  cookieManager = new CookieManager(chromeLauncher);
+  applyUpdaterSettings();
+
+  // Sync services
+  const encryptionSvc = new EncryptionService();
+  const s3Service = new S3Service(encryptionSvc, profileManager);
+  const gdriveService = new GDriveService(encryptionSvc, profileManager);
+  s3Service.loadFromSettings();
+
+  const backupManager = new BackupManager(chromeLauncher, encryptionSvc, profileManager, gdriveService, s3Service);
+  backupManager.setCookieManager(cookieManager);
+  const syncScheduler = new SyncScheduler(profileManager, backupManager, () => mainWindow);
+
+  // Auto-load persisted encryption key and resume auto-sync
+  const encryptedKeyHex = profileManager.getSetting('sync_encrypted_key');
+  if (encryptedKeyHex) {
+    try {
+      const keyHex = encryptionSvc.decryptString(encryptedKeyHex);
+      syncScheduler.setPassphraseKey(Buffer.from(keyHex, 'hex'));
+      console.log('[main] Encryption key loaded from DB');
+    } catch (err) {
+      console.error('[main] Failed to load encryption key (machine key changed?):', err);
+      // Clear corrupted key
+      profileManager.setSetting('sync_encrypted_key', '');
+    }
+  }
+
+  const browserVersionManager = new BrowserVersionManager();
+  chromeLauncher.setBrowserVersionManager(browserVersionManager);
+  cookieManager.setBrowserVersionManager(browserVersionManager);
+
+  const extensionManager = new ExtensionManager(app.getPath('userData'));
+
+  // Create the initial window first so mainWindow is available for handlers
+  createWindow();
+  // Register IPC handlers ONCE — pass getter so handlers always reference the current window
+  registerIpcHandlers(ipcMain, profileManager, chromeLauncher, proxyChecker, cookieManager, backupManager, browserVersionManager, () => mainWindow, encryptionSvc, gdriveService, s3Service, syncScheduler, extensionManager);
+});
 
 app.on('window-all-closed', async () => {
   // Gracefully stop all Chrome instances (wait for cookie/session flush)
@@ -158,6 +158,8 @@ app.on('before-quit', async (event) => {
   }
 });
 
+// macOS: re-create window when dock icon is clicked and all windows are closed.
+// IPC handlers are already registered, so only create the window — no re-registration.
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();

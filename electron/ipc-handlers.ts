@@ -23,7 +23,7 @@ export function registerIpcHandlers(
   cookieManager: CookieManager,
   backupManager: BackupManager,
   browserVersionManager: BrowserVersionManager,
-  mainWindow: BrowserWindow | null,
+  getMainWindow: () => BrowserWindow | null,
   encryptionSvc?: EncryptionService,
   gdriveService?: GDriveService,
   s3Service?: S3Service,
@@ -42,8 +42,9 @@ export function registerIpcHandlers(
       if (p.status === 'running' && !chromeLauncher.isRunning(p.id)) {
         if (!ChromeLauncher.isProfileActuallyRunning(p.user_data_dir)) {
           profileManager.updateStatus(p.id, 'ready');
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('profile:statusChanged', p.id, 'ready');
+          const mw = getMainWindow();
+          if (mw && !mw.isDestroyed()) {
+            mw.webContents.send('profile:statusChanged', p.id, 'ready');
           }
         }
       }
@@ -136,6 +137,7 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('profile:export', async (_event, ids?: string[]) => {
+    const mainWindow = getMainWindow();
     if (!mainWindow) return { success: false, error: 'No main window' };
     try {
       const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
@@ -165,6 +167,7 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('profile:import', async () => {
+    const mainWindow = getMainWindow();
     if (!mainWindow) return { success: false, error: 'No main window' };
     try {
       const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
@@ -268,29 +271,33 @@ export function registerIpcHandlers(
         // Only update status to ready if the process wasn't killed by another session taking over
         // Actually, if it exits, it's ready.
         profileManager.updateStatus(id, 'ready');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('profile:statusChanged', id, 'ready');
+        const mw1 = getMainWindow();
+        if (mw1 && !mw1.isDestroyed()) {
+          mw1.webContents.send('profile:statusChanged', id, 'ready');
         }
         // Auto-sync on close if enabled
         if (profileManager.getSetting('sync_auto_sync_on_close') === 'true') {
           syncScheduler?.syncOneOnClose(id).catch(err => {
             console.error('[IPC] Auto-sync on closed failed:', err);
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('profile:toast', 'error', `Auto-sync failed: ${err.message || err}`);
+            const mw2 = getMainWindow();
+            if (mw2 && !mw2.isDestroyed()) {
+              mw2.webContents.send('profile:toast', 'error', `Auto-sync failed: ${err.message || err}`);
             }
           });
         }
       });
 
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('profile:statusChanged', id, 'running');
+      const mw3 = getMainWindow();
+      if (mw3 && !mw3.isDestroyed()) {
+        mw3.webContents.send('profile:statusChanged', id, 'running');
       }
     } catch (err: any) {
       // If launch fails (e.g. locked by another RDP session), ensure status is correct
       if (!ChromeLauncher.isProfileActuallyRunning(profile.user_data_dir)) {
          profileManager.updateStatus(id, 'ready');
-         if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('profile:statusChanged', id, 'ready');
+         const mw4 = getMainWindow();
+         if (mw4 && !mw4.isDestroyed()) {
+            mw4.webContents.send('profile:statusChanged', id, 'ready');
          }
       }
       throw err;
@@ -307,16 +314,18 @@ export function registerIpcHandlers(
     }
 
     profileManager.updateStatus(id, 'ready');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('profile:statusChanged', id, 'ready');
+    const mw5 = getMainWindow();
+    if (mw5 && !mw5.isDestroyed()) {
+      mw5.webContents.send('profile:statusChanged', id, 'ready');
     }
 
     // Auto-sync on close if enabled
     if (profileManager.getSetting('sync_auto_sync_on_close') === 'true') {
       syncScheduler?.syncOneOnClose(id).catch(err => {
         console.error('[IPC] Auto-sync on closed failed:', err);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('profile:toast', 'error', `Auto-sync failed: ${err.message || err}`);
+        const mw6 = getMainWindow();
+        if (mw6 && !mw6.isDestroyed()) {
+          mw6.webContents.send('profile:toast', 'error', `Auto-sync failed: ${err.message || err}`);
         }
       });
     }
@@ -345,8 +354,9 @@ export function registerIpcHandlers(
                 country_name: geo.countryName,
               });
               // Send an event to frontend to reload proxies if needed
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('proxy:updated');
+              const mw7 = getMainWindow();
+              if (mw7 && !mw7.isDestroyed()) {
+                mw7.webContents.send('proxy:updated');
               }
             }
           } catch {}
@@ -371,24 +381,27 @@ export function registerIpcHandlers(
       // Country lookup is best-effort
     }
     const result = profileManager.createProxy({ ...data, country_code, country_name });
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('proxy:updated');
+    const mw8 = getMainWindow();
+    if (mw8 && !mw8.isDestroyed()) {
+      mw8.webContents.send('proxy:updated');
     }
     return result;
   });
 
   ipcMain.handle('proxy:update', (_event, id, data) => {
     const result = profileManager.updateProxy(id, data);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('proxy:updated');
+    const mw9 = getMainWindow();
+    if (mw9 && !mw9.isDestroyed()) {
+      mw9.webContents.send('proxy:updated');
     }
     return result;
   });
 
   ipcMain.handle('proxy:delete', (_event, id) => {
     profileManager.deleteProxy(id);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('proxy:updated');
+    const mw10 = getMainWindow();
+    if (mw10 && !mw10.isDestroyed()) {
+      mw10.webContents.send('proxy:updated');
     }
   });
 
@@ -404,12 +417,13 @@ export function registerIpcHandlers(
 
   // Cookie operations
   ipcMain.handle('cookie:export', async (_event, profileId: string) => {
-    if (!mainWindow) return { success: false, error: 'No main window' };
+    const mainWindow2 = getMainWindow();
+    if (!mainWindow2) return { success: false, error: 'No main window' };
     const profile = profileManager.getById(profileId);
     if (!profile) return { success: false, error: 'Profile not found' };
 
     try {
-      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow2, {
         title: 'Export Cookies',
         defaultPath: `cookies_${profile.name}.json`,
         filters: [{ name: 'JSON', extensions: ['json'] }]
@@ -426,12 +440,13 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('cookie:import', async (_event, profileId: string) => {
-    if (!mainWindow) return { success: false, error: 'No main window' };
+    const mainWindow3 = getMainWindow();
+    if (!mainWindow3) return { success: false, error: 'No main window' };
     const profile = profileManager.getById(profileId);
     if (!profile) return { success: false, error: 'Profile not found' };
 
     try {
-      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow3, {
         title: 'Import Cookies',
         properties: ['openFile'],
         filters: [{ name: 'JSON', extensions: ['json'] }]
@@ -475,8 +490,9 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('settings:selectChromePath', async () => {
-    if (!mainWindow) return null;
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const mainWindow4 = getMainWindow();
+    if (!mainWindow4) return null;
+    const result = await dialog.showOpenDialog(mainWindow4, {
       properties: ['openFile'],
       filters: [
         { name: 'Chrome/Chromium', extensions: ['exe', ''] },
@@ -501,8 +517,9 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('settings:selectProfilesDir', async () => {
-    if (!mainWindow) return null;
-    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    const mainWindow5 = getMainWindow();
+    if (!mainWindow5) return null;
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow5, {
       title: 'Select Profiles Directory',
       properties: ['openDirectory'],
     });
@@ -542,19 +559,20 @@ export function registerIpcHandlers(
 
   // Window controls
   ipcMain.handle('window:minimize', () => {
-    mainWindow?.minimize();
+    getMainWindow()?.minimize();
   });
 
   ipcMain.handle('window:maximize', () => {
-    if (mainWindow?.isMaximized()) {
-      mainWindow.unmaximize();
+    const mw = getMainWindow();
+    if (mw?.isMaximized()) {
+      mw.unmaximize();
     } else {
-      mainWindow?.maximize();
+      mw?.maximize();
     }
   });
 
   ipcMain.handle('window:close', () => {
-    mainWindow?.close();
+    getMainWindow()?.close();
   });
 
   // Load saved Chrome path
@@ -569,9 +587,10 @@ export function registerIpcHandlers(
       const profile = profileManager.getById(profileId);
       if (!profile) return { success: false, error: "Profile does not exist" };
 
-      if (!mainWindow) return { success: false, error: "No main window" };
+      const mainWindow6 = getMainWindow();
+      if (!mainWindow6) return { success: false, error: "No main window" };
 
-      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow6, {
         title: `Backup Profile: ${profile.name}`,
         defaultPath: `ezprofile_backup_${profile.name}_${Date.now()}.ezpsync`,
         filters: [
@@ -596,9 +615,10 @@ export function registerIpcHandlers(
       const profile = profileManager.getById(profileId);
       if (!profile) return { success: false, error: "Profile does not exist" };
 
-      if (!mainWindow) return { success: false, error: "No main window" };
+      const mainWindow7 = getMainWindow();
+      if (!mainWindow7) return { success: false, error: "No main window" };
 
-      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow7, {
         title: `Restore Data for: ${profile.name}`,
         properties: ['openFile'],
         filters: [
@@ -660,9 +680,10 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('browser:addCustom', async () => {
-    if (!mainWindow) return { success: false, error: 'No main window' };
+    const mainWindow8 = getMainWindow();
+    if (!mainWindow8) return { success: false, error: 'No main window' };
     try {
-      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow8, {
         title: 'Select Chrome Folder',
         properties: ['openDirectory'],
       });
@@ -790,7 +811,7 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('sync:startGoogleAuth', async () => {
-    if (!gdriveService || !mainWindow) return { success: false, error: 'GDrive service not available' };
+    if (!gdriveService || !getMainWindow()) return { success: false, error: 'GDrive service not available' };
     try {
       const result = await gdriveService.authenticate();
       return { success: true, email: result.email };
@@ -1329,9 +1350,10 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('extension:upload', async () => {
-    if (!mainWindow || !extensionManager) return { success: false, error: 'Not available' };
+    const mainWindow9 = getMainWindow();
+    if (!mainWindow9 || !extensionManager) return { success: false, error: 'Not available' };
 
-    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow9, {
       title: 'Select Extension File',
       properties: ['openFile'],
       filters: [
