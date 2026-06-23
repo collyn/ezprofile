@@ -41,155 +41,136 @@
 - **Proxy Toggle** — Enable/disable proxy per profile without removing the configuration.
 
 ### Anti-Detect & Fingerprinting
-- **CloakBrowser Integration** — Support for CloakBrowser anti-detect Chromium engine with runtime download and automatic management.
-- **Fingerprint Settings** — Customize per-profile fingerprint flags: platform, GPU vendor/renderer, screen resolution, hardware concurrency, device memory, timezone, locale, and browser brand.
+- **CloakBrowser Integration** — Full support for CloakBrowser anti-detect Chromium engine with runtime download and automatic management.
+- **Fingerprint Settings** — Deterministic hardware fingerprinting: seed-based resolution of GPU vendor/renderer, screen resolution, hardware concurrency, device memory, timezone, locale, browser brand, and WebRTC IP spoofing.
 
 ### Browser Version Management
 - **Chrome Version Manager** — Download and manage multiple Chrome versions via [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/), including stable and milestone releases.
-- **CloakBrowser Downloads** — Download CloakBrowser builds directly from the app with progress tracking.
+- **CloakBrowser Downloads** — Download CloakBrowser builds directly from GitHub Releases with progress tracking.
 - **Default Version** — Set a default browser version for all new profiles.
 - **Custom Browser Paths** — Add any Chromium-based browser by selecting its executable path.
 
 ### Data, Backup & Cloud Sync
-- **Cloud Synchronization** — Automatically sync profiles to Google Drive or AWS S3-compatible storage. Features auto-sync on close and configurable backup retention limits.
-- **End-to-End Encryption** — Cloud backups are protected with AES-256-GCM encryption using a custom passphrase, ensuring your data remains private. Settings and credentials are also encrypted at rest locally.
-- **Cookie Management** — Import/export cookies in JSON format for any profile.
-- **Local Backup & Restore** — Compress a profile's full data to a `.zip` archive and restore it anytime.
-- **Import / Export Profiles** — Bulk import/export profile configurations via Excel (`.xlsx`) or JSON.
+- **Cloud Synchronization** — Automatically sync profiles to Google Drive or AWS S3-compatible storage. Auto-sync on close with configurable backup retention limits.
+- **End-to-End Encryption** — Cloud backups protected with AES-256-GCM + PBKDF2 key derivation (`.ezpsync` format). Settings and credentials encrypted at rest.
+- **Cookie Management** — Import/export cookies in JSON format for any profile via Chrome DevTools Protocol.
+- **Local Backup & Restore** — Compress a profile's full data to a `.zip` archive (skipping caches) and restore anytime.
+- **Import / Export Profiles** — Bulk import/export profile configurations via JSON.
 
 ### Organization & Workflow
 - **Group Management** — Organize profiles into color-coded groups; batch-assign groups and proxies.
 - **Startup Configuration** — Set per-profile startup behavior: new tab, continue previous session, or open specific URLs.
 - **Context Menu** — Rich right-click context menu for quick access to all profile operations.
-- **Multi-RDP Session Support** — Correct profile status synchronization across multiple simultaneous Remote Desktop sessions.
+- **Keyboard Shortcuts** — `Ctrl+A` select all, `Ctrl+Click` multi-select, `Esc` deselect/close.
 
 ### Platform & UI
-- **Cross-Platform** — Native support for Windows, macOS, and Linux with platform-specific optimizations.
-- **Auto-Updater** — Automatic update checks and in-app updates via GitHub Releases.
-- **Multilingual** — Supported in English, Vietnamese, French, and Chinese via `react-i18next`.
-- **Modern UI** — Custom frameless title bar with native macOS traffic lights, dark theme, toast notifications, context menus, keyboard shortcuts.
+- **Cross-Platform** — Native support for Windows, macOS, and Linux.
+- **Auto-Updater** — Automatic update checks and in-app updates via GitHub Releases (Tauri plugin).
+- **Multilingual** — Supported in English, Vietnamese, French, Chinese, Korean, Japanese via `react-i18next`.
+- **Modern UI** — Custom frameless title bar with drag region, dark theme, toast notifications.
 
 ## 🖥️ Supported Platforms
 
-| Platform | Architecture | Format |
-|----------|-------------|--------|
-| Windows  | x64, arm64  | `.exe` (NSIS installer) |
-| macOS    | x64 (Intel), arm64 (Apple Silicon) | `.dmg`, `.zip` |
-| Linux    | x64, arm64  | `.AppImage`, `.deb` |
+| Platform | Format |
+|----------|--------|
+| Windows  | `.exe` (NSIS installer) |
+| macOS    | `.dmg` |
+| Linux    | `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL) |
 
 ## 📦 Installation
 
-Download the latest release for your platform from the [Releases](https://github.com/collyn/ezprofile/releases) page.
+Download the latest release from the [Releases](https://github.com/collyn/ezprofile/releases) page.
 
 ### Windows
-Download and run `EzProfile-Setup-x.x.x-win-x64.exe` (or `arm64` variant).
+Download and run `EzProfile-Setup-x.x.x-win-x64.exe`.
 
 ### macOS
-Download `EzProfile-x.x.x-mac-x64.dmg` or `EzProfile-x.x.x-mac-arm64.dmg`, open the DMG, and drag EzProfile to your Applications folder.
+Download `EzProfile-x.x.x-mac-x64.dmg`, open the DMG, and drag EzProfile to Applications.
 
 ### Linux
-- **AppImage**: Download, make executable (`chmod +x`), and run.
-- **Deb**: Install with `sudo dpkg -i EzProfile_x.x.x_amd64.deb`.
+- **Debian/Ubuntu**: `sudo dpkg -i EzProfile_x.x.x_amd64.deb`
+- **Fedora/RHEL**: `sudo rpm -i EzProfile-x.x.x-1.x86_64.rpm`
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | [Electron](https://www.electronjs.org/) 41 |
-| Frontend | [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/) 6 |
-| Bundler | [Vite](https://vitejs.dev/) 8 |
-| Database | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) (WAL mode) |
-| Browser Automation | [puppeteer-core](https://pptr.dev/) |
-| Password Hashing | [bcryptjs](https://github.com/dcodeIO/bcrypt.js) |
+| Runtime | [Tauri](https://tauri.app/) v2 (Rust backend + system webview) |
+| Frontend | [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/) |
+| Bundler | [Vite](https://vitejs.dev/) |
+| Database | [rusqlite](https://github.com/rusqlite/rusqlite) (SQLite, bundled) |
+| Encryption | AES-256-GCM + PBKDF2-HMAC-SHA256 (`aes-gcm`, `pbkdf2`) |
+| HTTP | [reqwest](https://docs.rs/reqwest/) + `curl` fallback |
+| WebSocket | [tokio-tungstenite](https://docs.rs/tokio-tungstenite/) (CDP) |
+| S3 | [rust-s3](https://docs.rs/rust-s3/) |
+| Archive | [zip](https://docs.rs/zip/) + [tar](https://docs.rs/tar/) + [flate2](https://docs.rs/flate2/) |
 | i18n | [react-i18next](https://react.i18next.com/) |
-| Build & Packaging | [electron-builder](https://www.electron.build/) |
-| Auto-Update | [electron-updater](https://www.electron.build/auto-update) |
-| Spreadsheet | [xlsx](https://sheetjs.com/) (SheetJS) |
 
 ## 🚀 Development
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) ≥ 18
-- [npm](https://www.npmjs.com/) ≥ 9
+- [Rust](https://www.rust-lang.org/) ≥ 1.80
+- Linux: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`
 - Chrome or Chromium installed on your system (for launching profiles)
 
 ### Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/collyn/ezprofile.git
 cd ezprofile
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
+npm run dev       # Start Tauri dev server (Vite + Rust)
 ```
 
 ### Build
 
 ```bash
-# Build for current platform
-npm run dist
-
-# Build for specific platform
-npm run dist:win     # Windows
-npm run dist:linux   # Linux
-npm run dist:mac     # macOS
+npm run build     # Build for current platform (deb + rpm on Linux)
 ```
 
 ## 📁 Project Structure
 
 ```
 ezprofile/
-├── electron/                # Electron main process
-│   ├── main.ts              # App entry, window creation, auto-updater
-│   ├── preload.ts           # Context bridge (IPC API)
-│   ├── ipc-handlers.ts      # All IPC handler registrations
-│   ├── database/            # SQLite schema & migrations
-│   │   └── schema.ts
-│   ├── services/            # Backend services
-│   │   ├── profile-manager.ts         # CRUD + groups + password + settings
-│   │   ├── chrome-launcher.ts         # Chrome/CloakBrowser process management
-│   │   ├── browser-version-manager.ts # Chrome for Testing & CloakBrowser downloads
-│   │   ├── proxy-checker.ts           # Proxy connectivity check
-│   │   ├── cookie-manager.ts          # Cookie import/export
-│   │   └── backup-manager.ts          # Profile backup/restore
-│   └── utils/
-│       └── import-export.ts           # Excel/JSON import/export
-├── src/                     # React frontend (renderer)
-│   ├── App.tsx              # Root component & state management
-│   ├── api.ts               # Frontend API wrapper
-│   ├── types.ts             # TypeScript type definitions
-│   ├── i18n.ts              # i18n configuration
-│   ├── locales/             # Translation files (en.json, vi.json)
-│   ├── components/          # Reusable UI components
+├── src-tauri/               # Tauri (Rust) backend
+│   ├── src/
+│   │   ├── main.rs           # App entry point
+│   │   ├── lib.rs            # Plugin registration
+│   │   ├── backend.rs        # All Tauri commands (~3000 lines)
+│   │   ├── gdrive.rs         # Google Drive service (OAuth, up/download)
+│   │   └── s3.rs             # S3-compatible storage service
+│   ├── Cargo.toml
+│   ├── tauri.conf.json       # Tauri configuration
+│   ├── capabilities/         # Permission declarations
+│   └── icons/                # App icons
+├── src/                      # React frontend
+│   ├── App.tsx               # Root component & state management
+│   ├── api.ts                # Frontend API wrapper
+│   ├── tauri-api.ts          # Tauri IPC invoke layer
+│   ├── types.ts              # TypeScript type definitions
+│   ├── locales/              # Translation files
+│   ├── components/           # Reusable UI components
 │   │   ├── CreateProfileModal.tsx
 │   │   ├── EditProfileModal.tsx
-│   │   ├── FingerprintSettings.tsx    # Anti-detect fingerprint config
-│   │   ├── PasswordModal.tsx          # Profile password gate
-│   │   ├── ProxyManagerModal.tsx      # Centralized proxy management
-│   │   ├── BatchAssignGroupModal.tsx
-│   │   ├── BatchAssignProxyModal.tsx
+│   │   ├── FingerprintSettings.tsx
+│   │   ├── PasswordModal.tsx
+│   │   ├── ProxyManagerModal.tsx
 │   │   ├── BrowserVersionModal.tsx
-│   │   ├── GroupManagerModal.tsx
+│   │   ├── SyncSettingsSection.tsx
+│   │   ├── SyncProfileModal.tsx
 │   │   ├── ContextMenu.tsx
 │   │   └── TitleBar.tsx
 │   ├── pages/
-│   │   ├── ProfileList.tsx  # Main profile list view
-│   │   └── SettingsPage.tsx # Settings & app info
-│   └── styles/              # CSS stylesheets
-├── scripts/                 # Build helper scripts
-│   ├── afterPack.js         # Linux sandbox fix
-│   ├── afterInstall.sh      # Deb post-install
-│   └── afterRemove.sh       # Deb post-remove
-├── public/                  # Static assets (icon)
+│   │   ├── ProfileList.tsx   # Main profile list view
+│   │   └── SettingsPage.tsx  # Settings & app info
+│   └── styles/               # CSS stylesheets
+├── public/                   # Static assets (icon)
+├── .github/workflows/        # CI/CD (Tauri build matrix)
 ├── package.json
 ├── vite.config.ts
-├── tsconfig.json
-└── tsconfig.electron.json
+└── tsconfig.json
 ```
 
 ## ⌨️ Keyboard Shortcuts
@@ -197,27 +178,18 @@ ezprofile/
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+A` | Select all profiles |
-| `Ctrl+Click` | Select multiple profiles |
+| `Ctrl+Click` | Add/remove profile from selection |
 | Right-click | Open context menu |
-| `Escape` | Close modal / Deselect all |
+| `Escape` | Deselect all / Close context menu |
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+MIT License — see [LICENSE](LICENSE).
 
 ## 🙏 Acknowledgments
 
-- [**CloakBrowser**](https://github.com/CloakHQ/CloakBrowser) — Thank you to the CloakBrowser team for providing an excellent open-source anti-detect Chromium engine. EzProfile's fingerprint spoofing capabilities are powered by CloakBrowser.
+- [**CloakBrowser**](https://github.com/CloakHQ/CloakBrowser) — Open-source anti-detect Chromium engine powering EzProfile's fingerprint capabilities.
+- [**Tauri**](https://tauri.app/) — Framework for building tiny, fast desktop apps with web frontends.
 
 ## 🔗 Links
 
