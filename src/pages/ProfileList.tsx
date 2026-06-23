@@ -208,21 +208,29 @@ export default function ProfileList({
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
+        e.stopPropagation();
         handleSelectAll();
       }
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         setSelectedIds(new Set());
+        setContextMenu(null);
       }
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    // Use capture phase to catch events before Tauri webview
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [handleSelectAll]);
 
-  const handleSelectOne = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const handleSelectOne = useCallback((id: string, ctrlKey?: boolean) => {
+    setSelectedIds((prev: Set<string>) => {
+      const next: Set<string> = ctrlKey ? new Set(prev) : new Set();
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }, []);
@@ -794,7 +802,7 @@ const ProfileRow = memo(function ProfileRow({
   isSelected: boolean;
   groupColor?: string;
   savedProxies: any[];
-  onSelect: (id: string) => void;
+  onSelect: (id: string, ctrlKey?: boolean) => void;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   onLaunch: (id: string) => void;
   onStop: (id: string) => void;
@@ -812,14 +820,14 @@ const ProfileRow = memo(function ProfileRow({
     <tr
       className={`${isSelected ? 'selected' : ''} ${profile.status === 'running' ? 'running' : ''}`}
       onContextMenu={(e) => onContextMenu(e, profile.id)}
-      onClick={() => onSelect(profile.id)}
+      onClick={(e) => onSelect(profile.id, e.ctrlKey || e.metaKey)}
     >
       <td>
         <div className="checkbox" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={() => onSelect(profile.id)}
+            onChange={() => onSelect(profile.id, false)}
           />
         </div>
       </td>
@@ -879,7 +887,7 @@ const ProfileRow = memo(function ProfileRow({
               disabled={profile.status === 'running'}
               style={{ 
                 fontSize: 11, 
-                background: 'var(--bg-secondary)', 
+                background: 'transparent', 
                 color: 'var(--text-primary)', 
                 border: '1px solid var(--border-color)', 
                 borderRadius: 4, 
@@ -894,7 +902,7 @@ const ProfileRow = memo(function ProfileRow({
               {savedProxies.map((p) => {
                 const flag = p.country_code ? countryCodeToFlag(p.country_code) + ' ' : '';
                 return (
-                  <option key={p.id} value={p.id} style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                  <option key={p.id} value={p.id}>
                     {flag}{p.host}:{p.port}
                   </option>
                 );

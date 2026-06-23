@@ -49,7 +49,7 @@ export function PassphrasePromptModal({ onComplete, onCancel }: PassphrasePrompt
       zIndex: 9999
     }}>
       <div style={{
-        background: 'var(--surface-color)', width: 400, borderRadius: 12,
+        background: 'var(--bg-secondary)', width: 400, borderRadius: 12,
         boxShadow: '0 12px 32px rgba(0,0,0,0.3)', overflow: 'hidden',
         border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column'
       }}>

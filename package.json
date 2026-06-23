@@ -1,18 +1,19 @@
 {
   "name": "ezprofile",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "Multi Chrome Profile Manager",
   "homepage": "https://github.com/collyn/ezprofile",
-  "main": "dist-electron/main.js",
+  "main": "dist/index.html",
   "scripts": {
-    "dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development ELECTRON_DISABLE_SANDBOX=1 electron .\"",
-    "build": "tsc && vite build && tsc -p tsconfig.electron.json",
+    "dev": "tauri dev",
+    "dev:vite": "vite",
+    "build": "npm run build:web && tauri build",
+    "build:web": "tsc && vite build",
     "preview": "vite preview",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "postinstall": "electron-builder install-app-deps"
+    "dist": "npm run build",
+    "dist:win": "npm run build -- --target x86_64-pc-windows-msvc",
+    "dist:linux": "npm run build",
+    "dist:mac": "npm run build"
   },
   "build": {
     "appId": "com.ezprofile.app",
@@ -23,9 +24,7 @@
     },
     "artifactName": "${productName}-Setup-${version}-${os}-${arch}.${ext}",
     "files": [
-      "dist/**/*",
-      "dist/**/*",
-      "dist-electron/**/*"
+      "dist/**/*"
     ],
     "publish": {
       "provider": "github",
@@ -124,10 +123,11 @@
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1024.0",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "adm-zip": "^0.5.16",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
-    "electron-updater": "^6.8.3",
     "i18next": "^25.10.9",
     "lucide-react": "^1.7.0",
     "p-limit": "^7.3.0",
@@ -137,6 +137,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0",
     "@types/adm-zip": "^0.5.8",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
@@ -146,8 +147,6 @@
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "electron": "^41.0.4",
-    "electron-builder": "^26.8.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "typescript": "^6.0.2",

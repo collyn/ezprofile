@@ -115,7 +115,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           zIndex: 10000
         }}>
           <div style={{
-            background: 'var(--surface-color)', width: 420, borderRadius: 12,
+            background: 'var(--bg-secondary)', width: 420, borderRadius: 12,
             boxShadow: '0 12px 32px rgba(0,0,0,0.3)', overflow: 'hidden',
             border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column',
             animation: 'fadeIn 0.2s ease-out'

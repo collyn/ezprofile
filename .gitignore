@@ -13,7 +13,12 @@ node_modules/
 # Build
 dist/
 dist-ssr/
-dist-electron/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Release
 release/
 
 # Testing Chrome Profiles
@@ -46,4 +51,6 @@ temp-chrome-profile/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# GitNexus
 .gitnexus

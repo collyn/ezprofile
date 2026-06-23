@@ -42,7 +42,10 @@ export default function EditProfileModal({ profile, groups, onClose, onSave }: E
 
   useEffect(() => {
     api.getInstalledBrowserVersions().then(setInstalledVersions);
-    api.getProxies().then(setSavedProxies);
+    api.getProxies().then(proxies => { setSavedProxies(proxies); if (proxies.length > 0) setProxySource('list'); }).catch(err => console.error('Failed to load proxies:', err));
+    api.onProxyUpdated(() => {
+      api.getProxies().then(proxies => { setSavedProxies(proxies); if (proxies.length > 0) setProxySource('list'); }).catch(() => {});
+    });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -222,26 +225,16 @@ export default function EditProfileModal({ profile, groups, onClose, onSave }: E
 
             {proxySource === 'list' && savedProxies.length > 0 ? (
               <div className="form-group" style={{ marginBottom: 12 }}>
-                <select
-                  onChange={(e) => {
-                    const proxy = savedProxies.find(p => p.id === e.target.value);
-                    if (proxy) {
-                      setProxyType(proxy.type);
-                      setProxyHost(proxy.host);
-                      setProxyPort(proxy.port.toString());
-                      setProxyUser(proxy.username || '');
-                      setProxyPass(proxy.password || '');
-                    }
+                <ProxyDropdown
+                  proxies={savedProxies}
+                  onSelect={(proxy) => {
+                    setProxyType(proxy.type);
+                    setProxyHost(proxy.host);
+                    setProxyPort(proxy.port.toString());
+                    setProxyUser(proxy.username || '');
+                    setProxyPass(proxy.password || '');
                   }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>{t('profileForm.selectProxy')}</option>
-                  {savedProxies.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.type.toUpperCase()} {p.host}:{p.port})
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             ) : (
               <>
@@ -368,6 +361,75 @@ export default function EditProfileModal({ profile, groups, onClose, onSave }: E
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+import React from 'react';
+
+function ProxyDropdown({ proxies, onSelect }: {
+  proxies: any[];
+  onSelect: (proxy: any) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [selected, setSelected] = React.useState('');
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const flag = (cc: string | null | undefined) =>
+    cc ? String.fromCodePoint(...cc.toUpperCase().split('').map((c: string) => 0x1F1E6 + c.charCodeAt(0) - 65)) : '';
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div
+        onClick={() => setOpen(!open)}
+        style={{
+          background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)',
+          borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 13,
+          color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8,
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ flex: 1, color: selected ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+          {selected || 'Select a proxy...'}
+        </span>
+        <span style={{ fontSize: 10 }}>&#9660;</span>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+          background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+          borderRadius: 6, marginTop: 4, maxHeight: 200, overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        }}>
+          {proxies.map((p: any) => (
+            <div
+              key={p.id}
+              onClick={() => {
+                const label = `${flag(p.country_code)} ${p.name} (${p.type.toUpperCase()} — ${p.host}:${p.port}${p.country_name ? ', ' + p.country_name : ''})`;
+                setSelected(label);
+                setOpen(false);
+                onSelect(p);
+              }}
+              style={{
+                padding: '8px 12px', cursor: 'pointer', fontSize: 13,
+                color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+            >
+              {flag(p.country_code)} {p.name} ({p.type.toUpperCase()} &mdash; {p.host}:{p.port}{p.country_name ? ', ' + p.country_name : ''})
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

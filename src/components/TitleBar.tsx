@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAPI } from '../api';
 import { useTranslation } from 'react-i18next';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LogoIcon, GlobeIcon, SettingsIcon, MinusIcon, SquareIcon, XIcon, CheckIcon, TelegramIcon } from './Icons';
 
 const api = getAPI();
@@ -49,7 +50,16 @@ export default function TitleBar({ onOpenSettings }: TitleBarProps) {
   const currentLang = LANGUAGES.find(l => l.code === i18n.language) || LANGUAGES[0];
 
   return (
-    <div className={`titlebar${isMac ? ' darwin' : ''}`}>
+    <div
+      className={`titlebar${isMac ? ' darwin' : ''}`}
+      data-tauri-drag-region
+      onMouseDown={(e) => {
+        // Start window drag on non-interactive elements only
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'BUTTON' || target.closest('button')) return;
+        getCurrentWindow().startDragging().catch(() => {});
+      }}
+    >
       {isMac && <div className="titlebar-traffic-spacer" />}
 
       <div className="titlebar-title">
