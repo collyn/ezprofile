@@ -17,6 +17,8 @@
 
 /* ===== CSS Variables / Design Tokens ===== */
 :root {
+  color-scheme: dark;
+
   --bg-primary: #0f0f14;
   --bg-secondary: #16161e;
   --bg-tertiary: #1c1c28;
@@ -929,6 +931,11 @@ input[type="url"]:focus,
 select:focus,
 textarea:focus {
   border-color: var(--accent-blue);
+}
+
+select option {
+  background: #1c1c28;
+  color: #e4e4ef;
 }
 
 input::placeholder,

@@ -1,8 +1,4 @@
-export {};
-
-declare global {
-  interface Window {
-    electronAPI: {
+export interface AppAPI {
       // Profile operations
       getProfiles: () => Promise<ProfileData[]>;
       createProfile: (data: CreateProfileInput) => Promise<ProfileData>;
@@ -69,8 +65,7 @@ declare global {
       setCheckUpdateOnStartup: (enabled: boolean) => Promise<void>;
       getIncludePrereleaseUpdates: () => Promise<boolean>;
       setIncludePrereleaseUpdates: (enabled: boolean) => Promise<void>;
-      getDisableGpuAcceleration: () => Promise<boolean>;
-      setDisableGpuAcceleration: (enabled: boolean) => Promise<void>;
+
 
       // Browser version management
       getAvailableBrowserVersions: () => Promise<ChromeVersionInfo[]>;
@@ -133,8 +128,6 @@ declare global {
       onSyncProgress: (callback: (progress: { profileId: string; message: string; percent?: number }) => void) => void;
       onSyncAllComplete: (callback: (result: { total: number; success: number; failed: number; errors: { profileId: string; name: string; error: string }[] }) => void) => void;
     };
-  }
-}
 
 export interface SyncSettings {
   provider: 'googledrive' | 's3' | null;

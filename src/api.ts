@@ -1,13 +1,15 @@
+import type { AppAPI } from './types';
 import { ProfileData, CreateProfileInput, ProxyCheckResult, ProxyData, ExtensionData } from './types';
+import { isTauri, tauriAPI } from './tauri-api';
 
-// Mock electronAPI for browser-only development (when not running in Electron)
+// Mock API for browser-only development (when not running in Tauri)
 const mockProfiles: ProfileData[] = [];
 const mockGroups: { id: string; name: string; color: string }[] = [];
 const mockProxies: ProxyData[] = [];
 let mockIdCounter = 0;
 
-export function isElectron(): boolean {
-  return !!(window as any).electronAPI;
+export function isTauriApp(): boolean {
+  return isTauri();
 }
 
 function createMockProfile(input: CreateProfileInput): ProfileData {
@@ -38,7 +40,7 @@ function createMockProfile(input: CreateProfileInput): ProfileData {
   };
 }
 
-export const mockElectronAPI: typeof window.electronAPI = {
+export const mockAPI: AppAPI = {
   getProfiles: async () => [...mockProfiles],
   createProfile: async (data) => {
     const profile = createMockProfile(data);
@@ -159,8 +161,7 @@ export const mockElectronAPI: typeof window.electronAPI = {
   setCheckUpdateOnStartup: async () => {},
   getIncludePrereleaseUpdates: async () => false,
   setIncludePrereleaseUpdates: async () => {},
-  getDisableGpuAcceleration: async () => false,
-  setDisableGpuAcceleration: async () => {},
+
   getAvailableBrowserVersions: async () => [],
   getInstalledBrowserVersions: async () => [],
   downloadBrowserVersion: async () => ({ success: true }),
@@ -236,6 +237,7 @@ export const mockElectronAPI: typeof window.electronAPI = {
   getExtensionIcon: async () => null,
 };
 
-export function getAPI(): typeof window.electronAPI {
-  return isElectron() ? window.electronAPI : mockElectronAPI;
+export function getAPI(): typeof tauriAPI {
+  if (isTauriApp()) return tauriAPI;
+  return mockAPI as unknown as typeof tauriAPI;
 }

@@ -1,0 +1,46 @@
+[package]
+name = "ezprofile"
+version = "1.1.8"
+description = "Multi Chrome Profile Manager"
+authors = ["EzProfile Team"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "ezprofile_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+aes-gcm = "0.10"
+base64 = "0.22"
+bcrypt = "0.15"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+flate2 = "1"
+futures-util = "0.3"
+hex = "0.4"
+hmac = "0.12"
+pbkdf2 = "0.12"
+rand = "0.8"
+reqwest = { version = "0.12", features = ["json", "stream", "multipart", "rustls-tls"], default-features = false }
+rust-s3 = { version = "0.35", features = ["tokio", "default"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tar = "0.4"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+tokio = { version = "1", features = ["process", "sync", "time", "rt-multi-thread", "net"] }
+tokio-tungstenite = "0.21"
+urlencoding = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+walkdir = "2"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+
