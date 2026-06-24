@@ -70,37 +70,27 @@ jobs:
           # Check if Tauri already generated it
           JSON_FILE="src-tauri/target/release/bundle/latest.json"
           if [ ! -f "$JSON_FILE" ]; then
-            # Generate manually
             mkdir -p src-tauri/target/release/bundle
-            cat > "$JSON_FILE" << EOF
-{
-  "version": "$VERSION",
-  "notes": "See the assets to download this version and install.",
-  "pub_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "platforms": {
-    "linux-x86_64": {
-      "signature": "",
-      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_amd64.deb"
-    },
-    "linux-x86_64-rpm": {
-      "signature": "",
-      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile-${VERSION}-1.x86_64.rpm"
-    },
-    "windows-x86_64": {
-      "signature": "",
-      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_x64_en-US.msi"
-    },
-    "darwin-x86_64": {
-      "signature": "",
-      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_x64.dmg"
-    },
-    "darwin-aarch64": {
-      "signature": "",
-      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_aarch64.dmg"
+            python3 -c "
+import json, os, datetime
+v = '$VERSION'
+repo = '${{ github.repository }}'
+tag = '${{ github.ref_name }}'
+data = {
+    'version': v,
+    'notes': 'See the assets to download this version and install.',
+    'pub_date': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'platforms': {
+        'linux-x86_64': {'signature': '', 'url': f'https://github.com/{repo}/releases/download/{tag}/EzProfile_{v}_amd64.deb'},
+        'linux-x86_64-rpm': {'signature': '', 'url': f'https://github.com/{repo}/releases/download/{tag}/EzProfile-{v}-1.x86_64.rpm'},
+        'windows-x86_64': {'signature': '', 'url': f'https://github.com/{repo}/releases/download/{tag}/EzProfile_{v}_x64_en-US.msi'},
+        'darwin-x86_64': {'signature': '', 'url': f'https://github.com/{repo}/releases/download/{tag}/EzProfile_{v}_x64.dmg'},
+        'darwin-aarch64': {'signature': '', 'url': f'https://github.com/{repo}/releases/download/{tag}/EzProfile_{v}_aarch64.dmg'},
     }
-  }
 }
-EOF
+with open('$JSON_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+"
           fi
           echo "Uploading latest.json..."
           gh release upload "${{ github.ref_name }}" "$JSON_FILE" --clobber
