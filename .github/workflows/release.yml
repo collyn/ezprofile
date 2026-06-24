@@ -52,8 +52,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "ezprofile-dev"
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'EzProfile v__VERSION__'
@@ -61,22 +59,53 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-      # Upload latest.json from Linux build as additional release asset
+      # Generate & upload latest.json for auto-updater
       - name: Upload latest.json (Linux only)
         if: matrix.platform == 'linux'
         run: |
-          # Try multiple paths where latest.json could be
-          for JSON_FILE in src-tauri/target/release/bundle/latest.json src-tauri/target/release/latest.json target/release/bundle/latest.json; do
-            echo "Checking: $JSON_FILE"
-            if [ -f "$JSON_FILE" ]; then
-              echo "Found latest.json, uploading..."
-              gh release upload "${{ github.ref_name }}" "$JSON_FILE" --clobber
-              exit 0
-            fi
-          done
-          echo "latest.json not found, searching..."
-          find . -name "latest.json" 2>/dev/null || echo "No latest.json anywhere"
-          ls -la src-tauri/target/release/bundle/ 2>/dev/null || true
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # strip 'v' prefix
+          echo "Generating latest.json for version $VERSION"
+
+          # Check if Tauri already generated it
+          JSON_FILE="src-tauri/target/release/bundle/latest.json"
+          if [ ! -f "$JSON_FILE" ]; then
+            # Generate manually
+            mkdir -p src-tauri/target/release/bundle
+            cat > "$JSON_FILE" << EOF
+{
+  "version": "$VERSION",
+  "notes": "See the assets to download this version and install.",
+  "pub_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "platforms": {
+    "linux-x86_64": {
+      "signature": "",
+      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_amd64.deb"
+    },
+    "linux-x86_64-rpm": {
+      "signature": "",
+      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile-${VERSION}-1.x86_64.rpm"
+    },
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_x64_en-US.msi"
+    },
+    "darwin-x86_64": {
+      "signature": "",
+      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_x64.dmg"
+    },
+    "darwin-aarch64": {
+      "signature": "",
+      "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/EzProfile_${VERSION}_aarch64.dmg"
+    }
+  }
+}
+EOF
+          fi
+          echo "Uploading latest.json..."
+          gh release upload "${{ github.ref_name }}" "$JSON_FILE" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
