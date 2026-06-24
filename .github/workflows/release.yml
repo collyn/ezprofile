@@ -10,6 +10,7 @@ permissions:
   contents: write
 
 jobs:
+  # Build on all platforms
   build:
     strategy:
       fail-fast: false
@@ -47,6 +48,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
+        id: tauri-build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,4 +60,18 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
-          includeUpdaterJson: true
+
+      # Upload latest.json from Linux build as additional release asset
+      - name: Upload latest.json (Linux only)
+        if: matrix.platform == 'linux'
+        run: |
+          JSON_FILE="src-tauri/target/release/bundle/latest.json"
+          if [ -f "$JSON_FILE" ]; then
+            echo "Found latest.json, uploading..."
+            gh release upload "${{ github.ref_name }}" "$JSON_FILE" --clobber
+          else
+            echo "latest.json not found at $JSON_FILE"
+            find src-tauri/target/release -name "latest.json" 2>/dev/null || echo "No latest.json anywhere"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
