@@ -65,13 +65,18 @@ jobs:
       - name: Upload latest.json (Linux only)
         if: matrix.platform == 'linux'
         run: |
-          JSON_FILE="src-tauri/target/release/bundle/latest.json"
-          if [ -f "$JSON_FILE" ]; then
-            echo "Found latest.json, uploading..."
-            gh release upload "${{ github.ref_name }}" "$JSON_FILE" --clobber
-          else
-            echo "latest.json not found at $JSON_FILE"
-            find src-tauri/target/release -name "latest.json" 2>/dev/null || echo "No latest.json anywhere"
+          # Try multiple paths where latest.json could be
+          for JSON_FILE in src-tauri/target/release/bundle/latest.json src-tauri/target/release/latest.json target/release/bundle/latest.json; do
+            echo "Checking: $JSON_FILE"
+            if [ -f "$JSON_FILE" ]; then
+              echo "Found latest.json, uploading..."
+              gh release upload "${{ github.ref_name }}" "$JSON_FILE" --clobber
+              exit 0
+            fi
+          done
+          echo "latest.json not found, searching..."
+          find . -name "latest.json" 2>/dev/null || echo "No latest.json anywhere"
+          ls -la src-tauri/target/release/bundle/ 2>/dev/null || true
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
